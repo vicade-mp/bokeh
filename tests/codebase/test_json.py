@@ -21,17 +21,17 @@ import pytest ; pytest
 import json
 
 # Bokeh imports
-from bokeh._testing.util.project import TOP_PATH
+from tests.support.util.project import TOP_PATH
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 paths = [
-    "bokeh/_sri.json",
-    "bokeh/util/sampledata.json",
-    "sphinx/source/docs/gallery.json",
-    "sphinx/switcher.json",
+    "src/bokeh/_sri.json",
+    "src/bokeh/util/sampledata.json",
+    "docs/bokeh/source/docs/gallery.json",
+    "docs/bokeh/switcher.json",
 ]
 
 def test_json() -> None:

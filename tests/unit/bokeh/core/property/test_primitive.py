@@ -16,13 +16,19 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# Standard library imports
+from typing import TYPE_CHECKING
+
 # External imports
 import numpy as np
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 from _util_property import _TestHasProps, _TestModel
+
+if TYPE_CHECKING:
+    from bokeh.core.has_props import HasProps
 
 # Module under test
 import bokeh.core.property.primitive as bcpp # isort:skip
@@ -47,14 +53,15 @@ ALL = (
 
 
 class Test_Bool:
+
     def test_valid(self) -> None:
         prop = bcpp.Bool()
 
         assert prop.is_valid(False)
         assert prop.is_valid(True)
 
-        assert prop.is_valid(np.bool8(False))
-        assert prop.is_valid(np.bool8(True))
+        assert prop.is_valid(np.bool_(False))
+        assert prop.is_valid(np.bool_(True))
 
     def test_invalid(self) -> None:
         prop = bcpp.Bool()
@@ -160,8 +167,8 @@ class Test_Complex:
         assert not prop.is_valid(_TestHasProps())
         assert not prop.is_valid(_TestModel())
 
-        assert not prop.is_valid(np.bool8(False))
-        assert not prop.is_valid(np.bool8(True))
+        assert not prop.is_valid(np.bool_(False))
+        assert not prop.is_valid(np.bool_(True))
 
     def test_has_ref(self) -> None:
         prop = bcpp.Complex()
@@ -220,8 +227,8 @@ class Test_Float:
         assert not prop.is_valid(_TestHasProps())
         assert not prop.is_valid(_TestModel())
 
-        assert not prop.is_valid(np.bool8(False))
-        assert not prop.is_valid(np.bool8(True))
+        assert not prop.is_valid(np.bool_(False))
+        assert not prop.is_valid(np.bool_(True))
         assert not prop.is_valid(np.complex64(1.0+1.0j))
         assert not prop.is_valid(np.complex128(1.0+1.0j))
         if hasattr(np, "complex256"):
@@ -237,6 +244,80 @@ class Test_Float:
 
 
 class Test_Int:
+
+    def test_eq(self) -> None:
+        assert (bcpp.Int() == int) is False
+
+        assert (bcpp.Int() == bcpp.Int()) is True
+        assert (bcpp.Int(default=0) == bcpp.Int()) is True
+
+        assert (bcpp.Int(default=1) == bcpp.Int()) is False
+        assert (bcpp.Int() == bcpp.Int(default=1)) is False
+        assert (bcpp.Int(default=1) == bcpp.Int(default=1)) is True
+
+        assert (bcpp.Int(help="heplful") == bcpp.Int()) is False
+        assert (bcpp.Int() == bcpp.Int(help="heplful")) is False
+        assert (bcpp.Int(help="heplful") == bcpp.Int(help="heplful")) is True
+
+        def f(s: str) -> int:
+            return int(s)
+
+        assert (bcpp.Int().accepts(bcpp.String, f) == bcpp.Int()) is False
+        assert (bcpp.Int() == bcpp.Int().accepts(bcpp.String, f)) is False
+        assert (bcpp.Int().accepts(bcpp.String, f) == bcpp.Int().accepts(bcpp.String, f)) is True
+
+        def g(_o: HasProps, v: int) -> bool:
+            return v >= 0
+
+        assert (bcpp.Int().asserts(g, ">= 0") == bcpp.Int()) is False
+        assert (bcpp.Int() == bcpp.Int().asserts(g, ">= 0")) is False
+        assert (bcpp.Int().asserts(g, ">= 0") == bcpp.Int().asserts(g, ">= 0")) is True
+
+    def test_clone(self) -> None:
+        p0 = bcpp.Int()
+        c0 = p0()
+
+        assert c0.default == 0
+        assert c0.help is None
+        assert c0.alternatives == []
+        assert c0.assertions == []
+
+        assert p0 is not c0
+        assert p0 == c0
+
+        p1 = bcpp.Int(default=10, help="helpful")
+        c1 = p1()
+
+        assert c1.default == 10
+        assert c1.help == "helpful"
+        assert c1.alternatives == []
+        assert c1.assertions == []
+
+        assert p1 is not c1
+        assert p1 == c1
+
+        p2 = bcpp.Int()
+        c2 = p2(default=20, help="helpful")
+
+        assert c2.default == 20
+        assert c2.help == "helpful"
+        assert c2.alternatives == []
+        assert c2.assertions == []
+
+        assert p2 is not c2
+        assert p2 != c2
+
+        p3 = bcpp.Int(default=10, help="helpful")
+        c3 = p3(default=20, help="unhelpful")
+
+        assert c3.default == 20
+        assert c3.help == "unhelpful"
+        assert c3.alternatives == []
+        assert c3.assertions == []
+
+        assert p3 is not c3
+        assert p3 != c3
+
     def test_valid(self) -> None:
         prop = bcpp.Int()
 
@@ -278,8 +359,8 @@ class Test_Int:
         assert not prop.is_valid(_TestHasProps())
         assert not prop.is_valid(_TestModel())
 
-        assert not prop.is_valid(np.bool8(False))
-        assert not prop.is_valid(np.bool8(True))
+        assert not prop.is_valid(np.bool_(False))
+        assert not prop.is_valid(np.bool_(True))
         assert not prop.is_valid(np.float16(0))
         assert not prop.is_valid(np.float16(1))
         assert not prop.is_valid(np.float32(0))

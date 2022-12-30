@@ -18,8 +18,6 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.plugins.project import SinglePlotPage
-from bokeh._testing.util.selenium import RECORD
 from bokeh.models import (
     ColumnDataSource,
     CustomJS,
@@ -28,6 +26,8 @@ from bokeh.models import (
     RangeTool,
     Rect,
 )
+from tests.support.plugins.project import SinglePlotPage
+from tests.support.util.selenium import RECORD
 
 #-----------------------------------------------------------------------------
 # Tests
@@ -37,7 +37,7 @@ from bokeh.models import (
 # TODO (bev) Add tests with both x_range and y_range
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def _make_plot():
@@ -61,8 +61,7 @@ class Test_RangeTool:
 
         page = single_plot_page(plot)
 
-        target = 'range'
-        button = page.get_toolbar_button(target)
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' in button.get_attribute('class')
 
         assert page.has_no_console_errors()
@@ -72,19 +71,17 @@ class Test_RangeTool:
 
         page = single_plot_page(plot)
 
-        target = 'range'
-
         # Check is active
-        button = page.get_toolbar_button(target)
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' in button.get_attribute('class')
 
         # Click and check is not active
-        button = page.get_toolbar_button(target)
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' not in button.get_attribute('class')
 
         # Click again and check is active
-        button = page.get_toolbar_button(target)
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' in button.get_attribute('class')
 
@@ -95,8 +92,7 @@ class Test_RangeTool:
 
         page = single_plot_page(plot)
 
-        target = 'range'
-        button = page.get_toolbar_button(target)
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.drag_canvas_at_position(plot, 500, 200, 100, 0)
@@ -276,9 +272,6 @@ class Test_RangeTool:
         assert results['start'] == -0.1
         assert results['end'] == 0.3
 
-
-    # TODO (bev) This test is broken due to some dumb reason with tooling
-    @pytest.mark.skip
     def test_center_pan_stops_at_plot_range_limit(self, single_plot_page: SinglePlotPage) -> None:
         plot = _make_plot()
 

@@ -22,14 +22,14 @@ from os import chdir
 from subprocess import run
 
 # Bokeh imports
-from bokeh._testing.util.project import TOP_PATH
+from tests.support.util.project import TOP_PATH
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 def test_isort_bokeh() -> None:
-    isort("bokeh")
+    isort("src/bokeh")
 
 def test_isort_examples() -> None:
     isort("examples")
@@ -37,14 +37,14 @@ def test_isort_examples() -> None:
 def test_isort_release() -> None:
     isort("release")
 
-def test_isort_sphinx() -> None:
-    isort("sphinx")
+def test_isort_docs_bokeh() -> None:
+    isort("docs/bokeh")
 
 def test_isort_tests() -> None:
     isort("tests")
 
 def test_isort_typings() -> None:
-    isort("typings")
+    isort("src/typings")
 
 #-----------------------------------------------------------------------------
 # Support

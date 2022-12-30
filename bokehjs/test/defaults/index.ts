@@ -3,12 +3,10 @@ export * from "../framework"
 
 import {ExpectationError} from "../unit/assertions"
 
-import all_defaults from "../.generated_defaults/defaults.json"
-
 import {HasProps} from "@bokehjs/core/has_props"
 import {unset} from "@bokehjs/core/properties"
-import {isArray, isPlainObject} from "@bokehjs/core/util/types"
-import {keys, entries} from "@bokehjs/core/util/object"
+import {isString, isArray, isPlainObject} from "@bokehjs/core/util/types"
+import {entries, dict} from "@bokehjs/core/util/object"
 import {is_equal} from "@bokehjs/core/util/eq"
 import {to_string} from "@bokehjs/core/util/pretty"
 import {Serializer} from "@bokehjs/core/serialization"
@@ -19,13 +17,47 @@ import {settings} from "@bokehjs/core/settings"
 import "@bokehjs/models/widgets/main"
 import "@bokehjs/models/widgets/tables/main"
 
-type KV = {[key: string]: unknown}
+import json5 from "json5"
+
+type KV<T = unknown> = {[key: string]: T}
+
+import defaults_json5 from "./defaults.json5"
+const all_defaults = dict<KV>(json5.parse(defaults_json5))
+
+function _resolve_defaults(_name: string, defaults: KV) {
+  const {__extends__} = defaults
+  delete defaults.__extends__
+
+  const bases = (() => {
+    if (isArray(__extends__))
+      return __extends__ as string[]
+    else if (isString(__extends__))
+      return [__extends__]
+    else if (__extends__ == null)
+      return []
+    else
+      throw new Error(`invalid __extends__: ${__extends__}`)
+  })()
+
+  let new_defaults: KV = {}
+  for (const base of bases) {
+    const base_defaults = all_defaults.get(base)!
+    new_defaults = {...new_defaults, ...base_defaults}
+  }
+
+  return {...new_defaults, ...defaults}
+}
+
+for (const [name, defaults] of all_defaults) {
+  const new_defaults = _resolve_defaults(name, defaults)
+  all_defaults.set(name, new_defaults)
+}
 
 class DefaultsSerializer extends Serializer {
 
   override encode(obj: unknown): unknown {
     if (obj instanceof HasProps) {
-      const attributes: KV = {}
+      const attributes: KV<unknown> = {}
       for (const prop of obj) {
         if (prop.syncable) {
           const value = prop.is_unset ? unset : prop.get_value()
@@ -41,8 +73,8 @@ class DefaultsSerializer extends Serializer {
   }
 }
 
-function get_defaults(name: string) {
-  const defaults = all_defaults[name]
+function get_defaults(name: string): KV {
+  const defaults = all_defaults.get(name)
   if (defaults != null)
     return defaults
   else
@@ -85,7 +117,8 @@ function check_matching_defaults(context: string[], name: string, python_default
       }
 
       if (is_object(js_v) && is_object(py_v) && js_v.name == py_v.name) {
-        check_matching_defaults([...context, `${name}.${k}`], js_v.name, py_v.attributes, js_v.attributes)
+        const py_attrs = {...get_defaults(py_v.name), ...py_v.attributes}
+        check_matching_defaults([...context, `${name}.${k}`], js_v.name, py_attrs, js_v.attributes)
         continue
       }
 
@@ -115,7 +148,8 @@ function check_matching_defaults(context: string[], name: string, python_default
               const py_vi = py_v[i]
 
               if (is_object(js_vi) && is_object(py_vi) && js_vi.name == py_vi.name) {
-                if (!check_matching_defaults([...context, `${name}.${k}[${i}]`], js_vi.name, py_vi.attributes, js_vi.attributes)) {
+                const py_attrs = {...get_defaults(py_vi.name), ...py_vi.attributes}
+                if (!check_matching_defaults([...context, `${name}.${k}[${i}]`], js_vi.name, py_attrs, js_vi.attributes)) {
                   equal = false
                   break
                 }
@@ -173,12 +207,13 @@ function diff<T>(a: Set<T>, b: Set<T>): Set<T> {
 describe("Defaults", () => {
   const internal_models = new Set([
     "Figure", "GMap", "Canvas", "LinearInterpolationScale", "ScanningColorMapper",
-    "ToolProxy", "CenterRotatable", "Spline",
+    "ToolProxy", "CenterRotatable", "Spline", "ParkMillerLCG", "ToolButton",
+    "OnOffButton", "ClickButton",
   ])
 
   it("have bokehjs and bokeh implement the same set of models", () => {
     const js_models = new Set(default_resolver.names)
-    const py_models = new Set(keys(all_defaults))
+    const py_models = new Set(all_defaults.keys())
 
     for (const model of internal_models) {
       js_models.delete(model)

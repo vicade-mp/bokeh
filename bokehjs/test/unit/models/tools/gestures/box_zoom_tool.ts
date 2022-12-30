@@ -1,11 +1,13 @@
 import {expect} from "assertions"
+import {display} from "../../../_util"
+import {click} from "../../../../interactive"
 
-import {Document} from "@bokehjs/document"
 import {Tool} from "@bokehjs/models/tools/tool"
-import {BoxZoomTool, BoxZoomToolView} from "@bokehjs/models/tools/gestures/box_zoom_tool"
+import {BoxZoomToolView} from "@bokehjs/models/tools/gestures/box_zoom_tool"
 import {Range1d} from "@bokehjs/models/ranges/range1d"
-import {Plot, PlotView} from "@bokehjs/models/plots/plot"
-import {build_view} from "@bokehjs/core/build_views"
+import {Plot} from "@bokehjs/models/plots/plot"
+import {BoxZoomTool, PanTool, Toolbar} from "@bokehjs/models"
+import {defer} from "@bokehjs/core/util/defer"
 
 describe("BoxZoomTool", () => {
 
@@ -33,28 +35,66 @@ describe("BoxZoomTool", () => {
   })
 
   describe("View", () => {
-    async function mkplot(tool: Tool): Promise<PlotView> {
+    async function mkplot(...tools: Tool[]) {
+      const buttons = tools.map((tool) => tool.tool_button())
       const plot = new Plot({
         x_range: new Range1d({start: -1, end: 1}),
         y_range: new Range1d({start: -1, end: 1}),
+        toolbar: new Toolbar({buttons, tools}),
       })
-      plot.add_tools(tool)
-      const document = new Document()
-      document.add_root(plot)
-      return (await build_view(plot)).build()
+      const {view: plot_view} = await display(plot)
+      return {
+        plot_view,
+        buttons: buttons.map((button) => plot_view.owner.get_one(button)),
+      }
     }
+
+    it("test_deselected_by_default_with_pan_tool", async () => {
+      const {buttons} = await mkplot(new BoxZoomTool(), new PanTool())
+      const [zoom, pan] = buttons
+      expect(zoom.class_list.has("bk-active")).to.be.false
+      expect(pan.class_list.has("bk-active")).to.be.true
+    })
+
+    it("selected_by_default_without_pan_tool", async () => {
+      const {buttons} = await mkplot(new BoxZoomTool())
+      const [zoom] = buttons
+      expect(zoom.class_list.has("bk-active")).to.be.true
+    })
+
+    it("can_be_selected_and_deselected", async () => {
+      const {buttons} = await mkplot(new BoxZoomTool(), new PanTool())
+      await defer()
+      const [zoom, pan] = buttons
+
+      // Check is not active
+      expect(zoom.class_list.has("bk-active")).to.be.false
+      expect(pan.class_list.has("bk-active")).to.be.true
+
+      // Click and check is active
+      await click(zoom.el)
+      await defer()
+      expect(zoom.class_list.has("bk-active")).to.be.true
+      expect(pan.class_list.has("bk-active")).to.be.false
+
+      // Click again and check is not active
+      await click(zoom.el)
+      await defer()
+      expect(zoom.class_list.has("bk-active")).to.be.false
+      expect(pan.class_list.has("bk-active")).to.be.false
+    })
 
     it("should zoom in both ranges", async () => {
       const box_zoom = new BoxZoomTool()
-      const plot_view = await mkplot(box_zoom)
+      const {plot_view} = await mkplot(box_zoom)
 
       const box_zoom_view = plot_view.tool_views.get(box_zoom)! as BoxZoomToolView
 
       // perform the tool action
-      const zoom_event0 = {type: "pan" as "pan", sx: 200, sy: 100, deltaX: 0, deltaY: 0, scale: 1, ctrlKey: false, shiftKey: false}
+      const zoom_event0 = {type: "pan" as "pan", sx: 200, sy: 100, dx: 0, dy: 0, scale: 1, ctrl_key: false, shift_key: false}
       box_zoom_view._pan_start(zoom_event0)
 
-      const zoom_event1 = {type: "pan" as "pan", sx: 400, sy: 500, deltaX: 0, deltaY: 0, scale: 1, ctrlKey: false, shiftKey: false}
+      const zoom_event1 = {type: "pan" as "pan", sx: 400, sy: 500, dx: 0, dy: 0, scale: 1, ctrl_key: false, shift_key: false}
       box_zoom_view._pan_end(zoom_event1)
 
       const hr = plot_view.frame.x_range
@@ -66,15 +106,15 @@ describe("BoxZoomTool", () => {
 
     it("should zoom in with match_aspect", async () => {
       const box_zoom = new BoxZoomTool({match_aspect: true})
-      const plot_view = await mkplot(box_zoom)
+      const {plot_view} = await mkplot(box_zoom)
 
       const box_zoom_view = plot_view.tool_views.get(box_zoom)! as BoxZoomToolView
 
       // perform the tool action
-      const zoom_event0 = {type: "pan" as "pan", sx: 200, sy: 200, deltaX: 0, deltaY: 0, scale: 1, ctrlKey: false, shiftKey: false}
+      const zoom_event0 = {type: "pan" as "pan", sx: 200, sy: 200, dx: 0, dy: 0, scale: 1, ctrl_key: false, shift_key: false}
       box_zoom_view._pan_start(zoom_event0)
 
-      const zoom_event1 = {type: "pan" as "pan", sx: 400, sy: 300, deltaX: 0, deltaY: 0, scale: 1, ctrlKey: false, shiftKey: false}
+      const zoom_event1 = {type: "pan" as "pan", sx: 400, sy: 300, dx: 0, dy: 0, scale: 1, ctrl_key: false, shift_key: false}
       box_zoom_view._pan_end(zoom_event1)
 
       const hr = plot_view.frame.x_range

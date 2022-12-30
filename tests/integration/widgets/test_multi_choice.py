@@ -18,13 +18,10 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # External imports
-from flaky import flaky
 from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import RECORD, find_element_for
 from bokeh.layouts import row
 from bokeh.models import (
     Circle,
@@ -34,13 +31,15 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import RECORD, find_element_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def mk_modify_doc(input_box: MultiChoice):
@@ -81,7 +80,6 @@ class Test_MultiChoice:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_displays_menu(self, bokeh_model_page: BokehModelPage) -> None:
         text_input = MultiChoice(title="title", options = ["100001", "12344556", "12344557", "3194567289", "209374209374"])
         page = bokeh_model_page(text_input)
@@ -114,7 +112,6 @@ class Test_MultiChoice:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_server_on_change_round_trip_on_enter(self, bokeh_server_page: BokehServerPage) -> None:
         input_box = MultiChoice()
         page = bokeh_server_page(mk_modify_doc(input_box))

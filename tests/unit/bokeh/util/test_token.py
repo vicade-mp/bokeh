@@ -22,12 +22,9 @@ import codecs
 import datetime as dt
 import json
 import random
-
-# External imports
-from mock import MagicMock, Mock, patch
+from unittest.mock import MagicMock, Mock, patch
 
 # Bokeh imports
-from bokeh._testing.util.env import envset
 from bokeh.util.token import (
     _TOKEN_ZLIB_KEY,
     _base64_decode,
@@ -42,6 +39,7 @@ from bokeh.util.token import (
     get_session_id,
     get_token_payload,
 )
+from tests.support.util.env import envset
 
 # Module under test
 import bokeh.util.token # isort:skip

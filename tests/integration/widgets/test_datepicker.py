@@ -20,12 +20,7 @@ import pytest ; pytest
 # Standard library imports
 from datetime import date
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import RECORD, find_element_for
 from bokeh.layouts import column
 from bokeh.models import (
     Circle,
@@ -35,13 +30,15 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import RECORD, find_element_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 
@@ -153,7 +150,6 @@ class Test_DatePicker:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def _test_js_on_change_executes(self, bokeh_model_page: BokehModelPage) -> None:
         dp = DatePicker(title='Select date', value=date(2019, 9, 20), min_date=date(2019, 9, 1), max_date="2019-09-30")
         dp.js_on_change('value', CustomJS(code=RECORD("value", "cb_obj.value")))
@@ -176,7 +172,6 @@ class Test_DatePicker:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def _test_server_on_change_round_trip(self, bokeh_server_page: BokehServerPage) -> None:
         dp = DatePicker(title='Select date', value=date(2019, 9, 20), min_date=date(2019, 9, 1), max_date="2019-09-30")
 
@@ -205,7 +200,6 @@ class Test_DatePicker:
         results = page.results
         assert results['data']['val'] == ['2019-09-20', '2019-09-16']
 
-    @flaky(max_runs=10)
     def _test_server_update_disabled(self, bokeh_server_page: BokehServerPage) -> None:
         dp = DatePicker(title='Select date', value=date(2019, 9, 20), min_date=date(2019, 9, 1), max_date="2019-09-30")
 

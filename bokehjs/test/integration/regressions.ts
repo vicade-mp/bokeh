@@ -2,6 +2,7 @@ import sinon from "sinon"
 
 import {expect} from "../unit/assertions"
 import {display, fig, row, column, grid, DelayedInternalProvider} from "./_util"
+import {PlotActions, xy, click, press} from "../interactive"
 
 import {
   Arrow, ArrowHead, NormalHead, OpenHead,
@@ -15,38 +16,44 @@ import {
   LinearColorMapper,
   Plot,
   TeX,
-  PanTool,
-  HoverTool,
-  ZoomInTool,
+  Toolbar, ToolProxy, PanTool, LassoSelectTool, HoverTool, ZoomInTool,
   TileRenderer, WMTSTileSource,
   Renderer,
   ImageURLTexture,
+  Row, Column,
+  Pane,
+  Tabs, TabPanel,
+  FixedTicker,
+  Jitter,
+  ParkMillerLCG,
+  GridPlot,
+  BasicTickFormatter,
 } from "@bokehjs/models"
 
-import {Button, Select, MultiSelect, MultiChoice, RadioGroup, Div} from "@bokehjs/models/widgets"
+import {Button, Toggle, Select, MultiSelect, MultiChoice, RadioGroup, RadioButtonGroup, Div, TextInput} from "@bokehjs/models/widgets"
 import {DataTable, TableColumn} from "@bokehjs/models/widgets/tables"
 
 import {Factor} from "@bokehjs/models/ranges/factor_range"
 
 import {Document} from "@bokehjs/document"
-import {Color} from "@bokehjs/core/types"
+import {Color, Arrayable} from "@bokehjs/core/types"
 import {Anchor, Location, OutputBackend, MarkerType} from "@bokehjs/core/enums"
-import {subsets} from "@bokehjs/core/util/iterator"
+import {subsets, tail} from "@bokehjs/core/util/iterator"
 import {assert} from "@bokehjs/core/util/assert"
+import {isArray} from "@bokehjs/core/util/types"
 import {range, linspace} from "@bokehjs/core/util/array"
 import {ndarray} from "@bokehjs/core/util/ndarray"
 import {Random} from "@bokehjs/core/util/random"
 import {Matrix} from "@bokehjs/core/util/matrix"
-import {defer, delay} from "@bokehjs/core/util/defer"
+import {paint} from "@bokehjs/core/util/defer"
 import {encode_rgba} from "@bokehjs/core/util/color"
-import {Figure, show} from "@bokehjs/api/plotting"
+import {Figure, figure, show} from "@bokehjs/api/plotting"
 import {MarkerArgs} from "@bokehjs/api/glyph_api"
 import {Spectral11, turbo, plasma} from "@bokehjs/api/palettes"
-import {div, offset} from "@bokehjs/core/dom"
+import {div, offset_bbox} from "@bokehjs/core/dom"
 
 import {MathTextView} from "@bokehjs/models/text/math_text"
 import {PlotView} from "@bokehjs/models/plots/plot"
-import {ToolbarPanelView} from "@bokehjs/models/annotations/toolbar_panel"
 
 import {gridplot} from "@bokehjs/api/gridplot"
 import {f} from "@bokehjs/api/expr"
@@ -747,6 +754,13 @@ describe("Bug", () => {
     })
   })
 
+  describe("in issue #9764", () => {
+    it("prevents display of MultiChoice placeholder", async () => {
+      const widget = new MultiChoice({placeholder: "Choose ...", options: ["1", "2", "3"], width: 200})
+      await display(widget, [250, 100])
+    })
+  })
+
   describe("in issue #10452", () => {
     it("prevents changing MultiChoice.disabled property", async () => {
       const widget = new MultiChoice({value: ["2", "3"], options: ["1", "2", "3"], width: 200})
@@ -791,8 +805,8 @@ describe("Bug", () => {
       const {view} = await display(layout, [350, 250])
 
       const choices_view = view.child_views[0] as MultiChoice["__view_type__"]
-      (choices_view as any /*protected*/).choice_el.showDropdown()
-      await defer()
+      choices_view.choice_el.showDropdown()
+      await paint()
     })
   })
 
@@ -815,8 +829,19 @@ describe("Bug", () => {
       await show(plot, el)
 
       const choices_view = view.child_views[0] as MultiChoice["__view_type__"]
-      (choices_view as any /*protected*/).choice_el.showDropdown()
-      await defer()
+      choices_view.choice_el.showDropdown()
+      await paint()
+    })
+  })
+
+  describe("in issue #12115", () => {
+    it.allowing(16)("prevents showing MultiChoice's dropdown items correctly", async () => {
+      const columns = ["Apple", "Pear", "Banana"]
+      const choices = new MultiChoice({options: columns, width: 75, width_policy: "fixed"})
+
+      const {view} = await display(choices, [100, 200])
+      view.choice_el.showDropdown()
+      await paint()
     })
   })
 
@@ -840,11 +865,11 @@ describe("Bug", () => {
       p2.circle({x: [1, 0], y: [0, 1], color: "green"})
       const box = new GridBox({
         children: [[p1, 0, 0], [p2, 0, 1]],
-        cols: {0: 300, 1: 300},
+        cols: ["300px", "300px"],
         sizing_mode: "fixed",
       })
       const {view} = await display(box, [600, 300])
-      box.cols = {0: 100, 1: 500}
+      box.cols = ["100px", "500px"]
       await view.ready
     })
   })
@@ -935,7 +960,7 @@ describe("Bug", () => {
       const p1 = fig([200, 200], {sizing_mode: "scale_width", background_fill_alpha: 0.5, border_fill_alpha: 0.5})
       p0.circle([0, 1, 2], [3, 4, 5])
       p1.circle([1, 2, 3], [4, 5, 6])
-      return row([p0, p1], {sizing_mode: "scale_width", background: "orange"})
+      return row([p0, p1], {sizing_mode: "scale_width", styles: {background_color: "orange"}})
     }
 
     it("results in incorrect layout when viewport is smaller than optimal size", async () => {
@@ -1184,7 +1209,7 @@ describe("Bug", () => {
       const [[sx], [sy]] = crv.coordinates.map_to_screen([2], [1.5])
 
       const ui = view.canvas_view.ui_event_bus
-      const {left, top} = offset(ui.hit_area)
+      const {left, top} = offset_bbox(ui.hit_area)
 
       const ev = new MouseEvent("mousemove", {clientX: left + sx, clientY: top + sy})
       ui.hit_area.dispatchEvent(ev)
@@ -1239,7 +1264,7 @@ describe("Bug", () => {
         const [[sx], [sy]] = crv.coordinates.map_to_screen([x], [y])
 
         const ui = plot_view.canvas_view.ui_event_bus
-        const {left, top} = offset(ui.hit_area)
+        const {left, top} = offset_bbox(ui.hit_area)
 
         const ev = new MouseEvent("mousemove", {clientX: left + sx, clientY: top + sy})
         ui.hit_area.dispatchEvent(ev)
@@ -1596,43 +1621,54 @@ describe("Bug", () => {
   })
 
   describe("in issue #9448", () => {
-    it("prevents correct text rendering with lazily loaded fonts", async () => {
-      const url = "/assets/fonts/vujahday/VujahdayScript-Regular.ttf"
-      const font = new FontFace("VujahdayScript", `url(${url})`)
+    const url = "/assets/fonts/vujahday/VujahdayScript-Regular.ttf"
+    const font = new FontFace("VujahdayScript", `url(${url})`)
+
+    before_each(() => {
       document.fonts.add(font)
+    })
 
-      expect(document.fonts.check("normal 12px VujahdayScript")).to.be.false
-      expect(document.fonts.check("normal 22px VujahdayScript")).to.be.false
-      expect(document.fonts.check("normal 26px VujahdayScript")).to.be.false
-      expect(document.fonts.check("normal 30px VujahdayScript")).to.be.false
+    function assert_fonts(status: boolean) {
+      expect(document.fonts.check("normal 12px VujahdayScript")).to.be.equal(status)
+      expect(document.fonts.check("normal 22px VujahdayScript")).to.be.equal(status)
+      expect(document.fonts.check("normal 26px VujahdayScript")).to.be.equal(status)
+      expect(document.fonts.check("normal 30px VujahdayScript")).to.be.equal(status)
+    }
 
-      try {
-        const p = fig([200, 200], {x_range: [0, 10], y_range: [0, 3]})
+    it("prevents correct text rendering with lazily loaded fonts", async () => {
+      assert_fonts(false)
 
-        p.xaxis.axis_label = "X-Axis"
-        p.xaxis.axis_label_text_font = "VujahdayScript"
-        p.xaxis.axis_label_text_font_size = "22px"
-        p.xaxis.major_label_text_font = "VujahdayScript"
-        p.xaxis.major_label_text_font_size = "12px"
+      const p = fig([200, 200], {x_range: [0, 10], y_range: [0, 3]})
 
-        p.yaxis.axis_label = "Y-Axis"
-        p.yaxis.axis_label_text_font = "VujahdayScript"
-        p.yaxis.axis_label_text_font_size = "26px"
-        p.yaxis.major_label_text_font = "VujahdayScript"
-        p.yaxis.major_label_text_font_size = "12px"
+      p.xaxis.axis_label = "X-Axis"
+      p.xaxis.axis_label_text_font = "VujahdayScript"
+      p.xaxis.axis_label_text_font_size = "22px"
+      p.xaxis.major_label_text_font = "VujahdayScript"
+      p.xaxis.major_label_text_font_size = "12px"
 
-        p.text({
-          x: [0, 1, 2], y: [0, 1, 2],
-          text: ["Śome 0", "Sómę 1", "Šome 2"],
-          text_font: "VujahdayScript", text_font_size: "30px",
-        })
+      p.yaxis.axis_label = "Y-Axis"
+      p.yaxis.axis_label_text_font = "VujahdayScript"
+      p.yaxis.axis_label_text_font_size = "26px"
+      p.yaxis.major_label_text_font = "VujahdayScript"
+      p.yaxis.major_label_text_font_size = "12px"
 
-        const {view} = await display(p)
-        await document.fonts.ready
-        await view.ready
-      } finally {
-        document.fonts.delete(font)
-      }
+      p.text({
+        x: [0, 1, 2], y: [0, 1, 2],
+        text: ["Śome 0", "Sómę 1", "Šome 2"],
+        text_font: "VujahdayScript", text_font_size: "30px",
+      })
+
+      const {view} = await display(p)
+
+      await document.fonts.ready
+      assert_fonts(true)
+
+      await view.ready
+    })
+
+    after_each(() => {
+      const deleted = document.fonts.delete(font)
+      assert(deleted, "font cleanup failed")
     })
   })
 
@@ -1645,6 +1681,10 @@ describe("Bug", () => {
       const button = new Button({label: "Click!"})
 
       const gp = gridplot([[plot, div], [null, button]], {merge_tools: true, toolbar_location: "above"})
+
+      gp.rows = "max-content"
+      gp.cols = "max-content"
+
       await display(gp)
     })
   })
@@ -1842,25 +1882,18 @@ describe("Bug", () => {
 
   describe("in issue #11946", () => {
     it("doesn't allow to persist menus after a re-render", async () => {
-      const p = fig([200, 100], {toolbar_location: "right", tools: [new PanTool()]})
-      p.circle([1, 2, 3], [1, 2, 3])
-      const {view} = await display(p)
+      const pan = new PanTool()
+      const pan_button = pan.tool_button()
+      const toolbar = new Toolbar({buttons: [pan_button], tools: [pan]})
 
+      const p = fig([200, 100], {toolbar_location: "right", toolbar})
+      p.circle([1, 2, 3], [1, 2, 3])
+
+      const {view} = await display(p)
       view.invalidate_render()
 
-      const tbpv = [...view.renderer_views.values()].find((view): view is ToolbarPanelView => view instanceof ToolbarPanelView)
-      assert(tbpv != null)
-
-      const [pan_button_view] = tbpv.toolbar_view.tool_button_views.values()
-      const pan_el = pan_button_view.el
-
-      const ev0 = new MouseEvent("mousedown", {clientX: 5, clientY: 5, bubbles: true})
-      const ev1 = new MouseEvent("mouseup", {clientX: 5, clientY: 5, bubbles: true})
-
-      // tool button press
-      pan_el.dispatchEvent(ev0)
-      await delay(300)
-      pan_el.dispatchEvent(ev1)
+      const pan_button_view = view.owner.get_one(pan_button)
+      await press(pan_button_view.el)
     })
   })
 
@@ -1902,6 +1935,890 @@ describe("Bug", () => {
         p.add_layout(new LinearAxis({y_range_name: name}), "right")
         await view.ready
       }
+    })
+  })
+
+  describe("in issue #12127", () => {
+    it("prevents displaying non-text labels in LabelSet", async () => {
+      const p = fig([200, 200], {
+        x_range: new Range1d({start: -1, end: 2}),
+        y_range: new Range1d({start: -1, end: 2}),
+      })
+
+      const source = new ColumnDataSource({data: {
+        a: [0, 0, 1, 1],
+        b: [0, 1, 0, 1],
+        c: [6, 7, 8, 9],
+      }})
+
+      const labels = new LabelSet({
+        x: {field: "a"},
+        y: {field: "b"},
+        text: {field: "c"},
+        source,
+      })
+
+      p.add_layout(labels)
+
+      await display(p)
+    })
+  })
+
+  describe("in issue #12357", () => {
+    it("should not render size 0 webgl markers", async () => {
+      const x = [0, 1, 2, 3]
+      const size = [5, 0, 0, 5]
+      const fill_color = "orange"
+      const line_color = "black"
+
+      function make_plot(output_backend: OutputBackend) {
+        const p = fig([150, 150], {output_backend, title: output_backend})
+        p.xgrid.visible = false
+        p.ygrid.visible = false
+        p.circle(x, 0, {size, fill_color, line_color})
+        p.scatter(x, 1, {marker: "circle", size, fill_color, line_color})
+        p.scatter(x, 2, {marker: "square", size, fill_color, line_color})
+        return p
+      }
+
+      const p0 = make_plot("canvas")
+      const p1 = make_plot("webgl")
+
+      await display(row([p0, p1]))
+    })
+
+    it("and #12429 prevents selection of line segments using indices", async () => {
+      const angles = np.linspace(0, 2*np.pi, 13)
+      const x = np.cos(angles)
+      const y = np.sin(angles)
+      y[10] = NaN
+      const selected = new Selection({indices: [0, 1, 2, 4, 6, 7, 9, 10]})
+      const source = new ColumnDataSource({data: {x, y}, selected})
+
+      function make_plot(output_backend: OutputBackend) {
+        const p = fig([150, 150], {output_backend, title: output_backend})
+        p.line({x: {field: "x"}, y: {field: "y"}, source, line_width: 4})
+        p.circle({x: {field: "x"}, y: {field: "y"}, source, fill_color: "red", size: 8})
+        return p
+      }
+
+      const p0 = make_plot("canvas")
+      const p1 = make_plot("webgl")
+
+      await display(row([p0, p1]))
+    })
+  })
+
+  describe("in issue #12361", () => {
+    it("prevents correct rendering with vectorized line_width == 0", async () => {
+      function plot(output_backend: OutputBackend) {
+        const p = fig([150, 200], {title: output_backend, output_backend})
+        p.circle({x: 0, y: [0, 1, 2, 3], fill_color: "orange", size: 12, line_width: [0, 5, 0, 5]})
+        return p
+      }
+
+      const p0 = plot("canvas")
+      const p1 = plot("svg")
+      const p2 = plot("webgl")
+
+      await display(row([p0, p1, p2]))
+    })
+  })
+
+  describe("in issue #12155", () => {
+    it("prevents computing correct layout for inline radio group", async () => {
+      const radio_group = new RadioGroup({
+        labels: ["Option 1", "Option 2", "Option 3", "Option 4", "Option 5"],
+        inline: true,
+        active: 0,
+        styles: {
+          background_color: "red",
+        },
+      })
+      await display(radio_group, [400, 50])
+    })
+  })
+
+  describe("in issue #12205", () => {
+    it("prevents expansion of Div when using sizing_mode='stretch_width'", async () => {
+      const div = new Div({
+        text: "Some text",
+        sizing_mode: "stretch_width",
+        styles: {border: "1px solid red"},
+      })
+
+      const plot = fig([300, 300], {sizing_mode: "stretch_width"})
+      plot.circle([1, 2, 3, 4, 5], [6, 7, 2, 4, 5])
+
+      const col = new Column({children: [div, plot], sizing_mode: "stretch_width"})
+      await display(col, [300, 350])
+    })
+  })
+
+  describe("in issue #9113", () => {
+    it.allowing(8)("prevents layout update when adding new toggle group buttons", async () => {
+      const group = new RadioButtonGroup({labels: []})
+      const {view} = await display(group, [300, 100])
+
+      group.labels = [...group.labels, "Button 0"]
+      await view.ready
+      await paint()
+
+      group.labels = [...group.labels, "Button 1"]
+      await view.ready
+      await paint()
+
+      group.labels = [...group.labels, "Button 2"]
+      await view.ready
+      await paint()
+    })
+  })
+
+  describe("in issue #9208", () => {
+    it("makes a 'stretch_width' and large height child overflow x when y scrollbar is present", async () => {
+      const plot = fig([200, 600], {
+        width_policy: "max",
+        height_policy: "fixed",
+        toolbar_location: "right",
+      })
+      plot.circle([1, 2, 3], [1, 2, 3], {size: 10})
+
+      const pane = new Pane({
+        styles: {width: "300px", height: "300px", overflow_y: "scroll"},
+        children: [plot],
+      })
+
+      await display(pane, [350, 350])
+    })
+  })
+
+  describe("in issue #11339", () => {
+    it.allowing(2*8)("collapses layout after toggling visiblity", async () => {
+      const toggle = new Toggle({label: "Click", active: true})
+      const select1 = new Select({title: "Select 1:", options: ["1", "2"]})
+      const select2 = new Select({title: "Select 2:", options: ["1", "2"]})
+      const div = new Div({text: "Some text"})
+
+      const selects = new Column({children: [select1, select2]})
+      const layout = new Column({children: [new Column({children: [toggle, selects]}), div]})
+
+      // Defer to make sure CSS layout is done after each step. The last one isn't
+      // strictly necessary, because test framework defers anyway after a test and
+      // before collecting results and capturing screenshots.
+      const {view} = await display(layout, [100, 200])
+      await paint()
+
+      // We aren't clicking on the button, because it doesn't affect the outcome.
+      selects.visible = false
+      await view.ready
+      await paint()
+
+      selects.visible = true
+      await view.ready
+      await paint()
+    })
+  })
+
+  describe("in issue #4817", () => {
+    it("doesn't correctly align widgets after adding text to a widget", async () => {
+      const button = new Button({label: "Say"})
+      const input = new TextInput({value: "Bokeh"})
+      const output = new Div()
+
+      button.on_click(() => {
+        output.text = `Hello, ${input.value}!`
+      })
+
+      const layout = new Column({
+        children: [
+          new Row({children: [button, input]}),
+          output,
+        ],
+      })
+
+      const {view} = await display(layout, [300, 100])
+      const button_view = view.owner.get_one(button)
+
+      const ev = new MouseEvent("click", {bubbles: true})
+      button_view.button_el.dispatchEvent(ev)
+
+      await view.ready
+      await paint()
+    })
+  })
+
+  describe("in issue #4403", () => {
+    it("doesn't allow layout resize when parent element's size changed", async () => {
+      const plot = figure({sizing_mode: "stretch_both"})
+      plot.circle([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], {size: 20, color: "navy", alpha: 0.5})
+
+      const pane = new Pane({styles: {width: "200px", height: "200px"}, children: [plot]})
+      const {view} = await display(pane, [350, 350])
+      await paint()
+
+      pane.styles = {width: "300px", height: "300px"}
+      await view.ready
+    })
+  })
+
+  describe("in issue #8469", () => {
+    it("makes child layout update invalidate and re-render entire layout", async () => {
+      const p0 = figure({width: 300, height: 300})
+      p0.circle([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], {size: 20, color: "navy", alpha: 0.5})
+      const button = new Button({label: "click"})
+      const column = new Column({children: [new Column({children: [button, p0]})]})
+      const tab0 = new TabPanel({child: column, title: "circle"})
+
+      const p1 = figure({width: 300, height: 300})
+      p1.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], {line_width: 3, color: "navy", alpha: 0.5})
+      const tab1 = new TabPanel({child: p1, title: "line"})
+
+      const tabs = new Tabs({tabs: [tab0, tab1]})
+      button.on_click(() => {
+        column.children = [...column.children, new Button({label: "new button"})]
+      })
+
+      const {view} = await display(tabs, [350, 650])
+      const button_view = view.owner.get_one(button)
+
+      for (const _ of range(0, 5)) {
+        const ev = new MouseEvent("click", {bubbles: true})
+        button_view.button_el.dispatchEvent(ev)
+        await view.ready
+        await paint()
+      }
+    })
+  })
+
+  describe("in issue #9133", () => {
+    it("doesn't allow to set fixed size of Tabs layout", async () => {
+      const p1 = figure({width: 300, height: 300})
+      p1.circle([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], {size: 20, color: "navy", alpha: 0.5})
+
+      const p2 = figure({width: 300, height: 300})
+      p2.line([1, 2, 3, 4, 5], [6, 7, 2, 4, 5], {line_width: 3, color: "navy", alpha: 0.5})
+
+      const tab1 = new TabPanel({child: p1, title: "circle"})
+      const tab2 = new TabPanel({child: p2, title: "line"})
+      const tabs = new Tabs({tabs: [tab1, tab2], width: 500})
+
+      await display(tabs, [550, 350])
+    })
+  })
+
+  describe("in issue #9992", () => {
+    it("doesn't correctly display layout when visiblity changes", async () => {
+      function create_figure(x: Arrayable<number>, y: Arrayable<number>, log_scale: boolean = false) {
+        const plot = figure({width: 300, height: 300, y_axis_type: log_scale ? "log" : "linear"})
+        plot.line(x, y, {line_width: 3, line_alpha: 0.6})
+        return plot
+      }
+
+      function create_tabs(plot0: Plot, plot1: Plot, name: string) {
+        const tab0 = new TabPanel({child: plot0, title: "Linear"})
+        const tab1 = new TabPanel({child: plot1, title: "Logarithmic"})
+        return new Tabs({tabs: [tab0, tab1], name})
+      }
+
+      function create_selector(figs: Tabs[]) {
+        const names = figs.map((fig) => fig.name) as string[]
+        const selector = new Select({title: "Select Curve", value: names[0], options: names, width: 200})
+
+        for (const fig of tail(figs)) {
+          fig.visible = false
+        }
+
+        selector.on_change(selector.properties.value, () => {
+          const selected = selector.value
+          for (const fig of figs) {
+            fig.visible = fig.name == selected
+          }
+        })
+
+        return selector
+      }
+
+      const x = np.linspace(0, 10)
+
+      const fig_lin_lin = create_figure(x, x)
+      const fig_lin_log = create_figure(x, x, true)
+      const fig_lin = create_tabs(fig_lin_lin, fig_lin_log, "Linear")
+
+      const fig_quad_lin = create_figure(x, np.pow(x, 2))
+      const fig_quad_log = create_figure(x, np.pow(x, 2), true)
+      const fig_quad = create_tabs(fig_quad_lin, fig_quad_log, "Quadratic")
+
+      const fig_exp_lin = create_figure(x, np.exp(x))
+      const fig_exp_log = create_figure(x, np.exp(x), true)
+      const fig_exp = create_tabs(fig_exp_lin, fig_exp_log, "Exponential")
+
+      const figs = [fig_lin, fig_quad, fig_exp]
+
+      const selector = create_selector(figs)
+      const layout = column([selector, ...figs])
+
+      const {view} = await display(layout, [450, 450])
+
+      selector.value = "Exponential"
+      await view.ready
+
+      fig_exp.active = 1
+      await view.ready
+    })
+  })
+
+  describe("in issue #10125", () => {
+    function make() {
+      const button = new Button({label: "Click me!"})
+
+      const radios = new RadioGroup({
+        labels: ["hello", "there"],
+        active: 0,
+        inline: true,
+      })
+
+      const text_input1 = new TextInput({value: "0.0", title: "text-input1"})
+      const text_input2 = new TextInput({value: "1.0", title: "text-input2"})
+      const text_input3 = new TextInput({value: "2.0", title: "text-input3"})
+
+      const plot = figure({width: 300, height: 300, title: "test plot"})
+      plot.line({x: [1, 2, 3], y: [2, 4, 6]})
+
+      const hidden_widgets = new Row({
+        children: [
+          new Column({children: [radios, text_input1, text_input2, text_input3]}),
+          plot,
+        ],
+        visible: false,
+      })
+      button.on_click(() => hidden_widgets.visible = true)
+
+      const layout = new Column({children: [button, hidden_widgets]})
+      return {layout, button}
+    }
+
+    it("doesn't allow signal idle with invisible UI components", async () => {
+      const {layout} = make()
+      await display(layout, [100, 50])
+    })
+
+    it("doesn't correctly display layout when visiblity changes", async () => {
+      const {layout, button} = make()
+
+      const {view} = await display(layout, [550, 350])
+      const button_view = view.owner.get_one(button)
+
+      const ev = new MouseEvent("click", {bubbles: true})
+      button_view.button_el.dispatchEvent(ev)
+
+      await view.ready
+    })
+  })
+
+  describe("in issue #12412", () => {
+    it("displays canvas step glyph with incorrect alpha", async () => {
+      function make_plot(output_backend: OutputBackend) {
+        const p = fig([200, 200], {output_backend, title: output_backend})
+        p.step({mode: "before", x: [0, 1], y: [0.1, 1.1], line_width: 10, alpha: 0.5})
+        p.step({mode: "center", x: [0.1, 1.1], y: [0, 1], line_width: 10, alpha: 0.5})
+        p.step({mode: "after", x: [0.2, 1.2], y: [-0.1, 0.9], line_width: 10, alpha: 0.5})
+        return p
+      }
+
+      const p0 = make_plot("canvas")
+      const p1 = make_plot("webgl")
+
+      await display(row([p0, p1]))
+    })
+  })
+
+  describe("in issue #12418", () => {
+    function plot(color: Color) {
+      const lasso = new LassoSelectTool({persistent: true})
+      lasso.overlay.line_dash = "solid"
+      const p = fig([200, 200], {tools: [lasso]})
+      p.circle([-2, -1, 0, 1, 2], [-2, -1, 0, 1, 2], {size: 10, color})
+      return p
+    }
+
+    const path = {
+      type: "poly" as const,
+      xys: [xy(0, -1), xy(2, -1), xy(2, 1), xy(1, 2), xy(-1, 0), xy(0, -1)],
+    }
+
+    it("doesn't allow to correctly display lasso select overlay in single plots", async () => {
+      const p = plot("red")
+      const {view} = await display(p)
+
+      const actions = new PlotActions(view)
+      await actions.pan_along(path)
+    })
+
+    it("doesn't allow to correctly display lasso select overlay in layouts", async () => {
+      const p0 = plot("red")
+      const p1 = plot("green")
+      const {view} = await display(new Row({children: [p0, p1]}))
+
+      const pv0 = view.owner.get_one(p0)
+      const pv1 = view.owner.get_one(p1)
+
+      const actions0 = new PlotActions(pv0)
+      await actions0.pan_along(path)
+
+      const actions1 = new PlotActions(pv1)
+      await actions1.pan_along(path)
+
+      await paint()
+    })
+  })
+
+  describe("in issue #12404", () => {
+    it("doesn't allow to correctly apply jitter transform with Int32Array inputs", async () => {
+      const mpg81 = [27, 26, 25, 23, 30, 39, 39, 35, 32, 37, 37, 34, 34, 34, 29, 33, 33, 32, 32, 31, 28, 30, 25, 24, 22, 26, 20, 17]
+      const mpg82 = [28, 27, 34, 31, 29, 27, 24, 36, 37, 31, 38, 36, 36, 36, 34, 38, 32, 38, 25, 38, 26, 22, 32, 36, 27, 27, 44, 32]
+
+      const yr81 = Int32Array.from({length: mpg81.length}, () => 81)
+      const yr82 = Int32Array.from({length: mpg82.length}, () => 82)
+
+      const source = new ColumnDataSource({
+        data: {
+          yr: new Int32Array([...yr81, ...yr82]),
+          mpg: new Float64Array([...mpg81, ...mpg82]),
+        },
+      })
+
+      function plot(title: string, transform?: Jitter) {
+        const p = fig([200, 300], {title})
+        p.xgrid.grid_line_color = null
+        p.xaxis.ticker = new FixedTicker({ticks: [81, 82]})
+        p.scatter({x: {field: "yr", transform}, y: {field: "mpg"}, size: 9, alpha: 0.4, source})
+        return p
+      }
+
+      const p0 = plot("no jitter")
+      const p1 = plot("jitter", new Jitter({width: 0.4, random_generator: new ParkMillerLCG({seed: 54235})}))
+
+      await display(new Row({children: [p0, p1]}))
+    })
+  })
+
+  describe("in issue #12405", () => {
+    it("doesn't allow to propagate computed layouts in nested CSS layouts", async () => {
+      const p0 = fig([200, 200])
+      p0.circle([1, 2, 3], [1, 2, 3], {color: "red"})
+      const p1 = fig([200, 200])
+      p1.circle([1, 2, 3], [1, 2, 3], {color: "green"})
+
+      const g = new GridPlot({children: [[p0, 0, 0], [p1, 0, 1]]})
+      const r = new Row({children: [g]})
+      const c = new Column({children: [r]})
+
+      await display(c)
+    })
+  })
+
+  describe("in issue #12447", () => {
+    it("make tooltips interfere with toolbars", async () => {
+      const p = fig([200, 200], {toolbar_location: "above"})
+      p.add_tools(new HoverTool())
+      p.circle([1, 2, 3], [1, 2, 3], {size: 20})
+
+      const {view} = await display(p)
+
+      const actions = new PlotActions(view)
+      actions.hover(xy(3, 3))
+    })
+  })
+
+  describe("in issue #12448", () => {
+    it("doesn't allow for good rows and cols sizing defaults in GridPlot", async () => {
+      function p(x: boolean, y: boolean) {
+        const p = fig([200 + (x ? 20 : 0), 200 + (y ? 20 : 0)], {
+          x_axis_location: x ? "left" : null,
+          y_axis_location: y ? "below" : null,
+        })
+
+        p.circle([1, 2, 3], [1, 2, 3], {size: 10})
+        return p
+      }
+
+      const g = new GridPlot({
+        children: [
+          [p(true, false), 0, 0], [p(false, false), 0, 1], [p(false, false), 0, 2],
+          [p(true, false), 1, 0], [p(false, false), 1, 1], [p(false, false), 1, 2],
+          [p(true, true),  2, 0], [p(false, true),  2, 1], [p(false, true),  2, 2],
+        ],
+      })
+
+      await display(g)
+    })
+  })
+
+  describe("in issue #12479", () => {
+    function plot(a: number, b: number, color: Color, plot_args?: Partial<Plot.Attrs>) {
+      const p = fig([200, 200], plot_args)
+      p.add_layout(new LinearAxis(), "above")
+      p.add_layout(new LinearAxis(), "right")
+      p.xaxis.each((axis) => (axis.formatter as BasicTickFormatter).use_scientific = false)
+      p.yaxis.each((axis) => (axis.formatter as BasicTickFormatter).use_scientific = false)
+      p.xaxis.major_label_orientation = "vertical"
+      p.yaxis.major_label_orientation = "horizontal"
+      const xs = [1, 2, 3].map((c) => c*a)
+      const ys = [1, 2, 3].map((c) => c*b)
+      p.circle(xs, ys, {size: 10, color})
+      return p
+    }
+
+    it("doesn't allow computing grid plot layout in nested layouts", async () => {
+      const row = new Row({
+        children: [
+          plot(10**1, 10**1, "red"),
+          plot(10**2, 10**2, "green"),
+          plot(10**3, 10**3, "blue"),
+        ],
+      })
+
+      const grid = new GridPlot({
+        children: [
+          [plot(10**1, 10**1, "red"), 0, 0],
+          [plot(10**2, 10**2, "green"), 0, 1],
+          [plot(10**3, 10**3, "blue"), 1, 0],
+          [plot(10**4, 10**4, "yellow"), 1, 1],
+        ],
+      })
+
+      const col = new Column({
+        children: [row, grid],
+      })
+
+      await display(col)
+    })
+  })
+
+  describe("in issue #12465", () => {
+    it("doesn't allow to correctly display DataTable in Tabs", async () => {
+      function table(n: number) {
+        const source = new ColumnDataSource({
+          data: {
+            col1: [1*n, 2*n, 3*n],
+            col2: [55*n, 66*n, 77*n],
+          },
+        })
+        const columns = [
+          new TableColumn({field: "col1", title: "Column 1"}),
+          new TableColumn({field: "col2", title: "Column 2"}),
+        ]
+        const table = new DataTable({
+          width: 300,
+          height: 150,
+          source,
+          columns,
+        })
+        return table
+      }
+
+      const tabs = new Tabs({
+        tabs: [
+          new TabPanel({title: "Table 0", closable: true, child: table(1)}),
+          new TabPanel({title: "Table 1", closable: true, child: table(10)}),
+        ],
+      })
+
+      await display(tabs, [350, 200])
+    })
+  })
+
+  describe("in issue #4930", () => {
+    function plot(color: Color) {
+      const p = fig([150, 150])
+      const source = new ColumnDataSource({
+        data: {
+          foo: ["foo1", "foo2", "foo3"],
+          bar: ["bar1", "bar2", "bar3"],
+          baz: ["baz1", "baz2", "baz3"],
+        },
+      })
+      p.circle([1, 2, 3], [3, 1, 2], {size: 10, color, source})
+      const hover = new HoverTool({
+        tooltips: [
+          ["index",         "$index"],
+          ["data (x, y)",   "($x, $y)"],
+          ["screen (x, y)", "($sx, $sy)"],
+          ["foo",           "@foo"],
+          ["bar",           "@bar"],
+          ["baz",           "@baz"],
+        ],
+        attachment: "right",
+      })
+      p.add_tools(hover)
+      return p
+    }
+
+    it("allows to cut tooltips short in grid plots", async () => {
+      const p00 = plot("red")
+      const p01 = plot("green")
+      const p10 = plot("blue")
+      const p11 = plot("yellow")
+
+      const layout = new GridPlot({
+        toolbar_location: null,
+        children: [
+          [p00, 0, 0],
+          [p01, 0, 1],
+          [p10, 1, 0],
+          [p11, 1, 1],
+        ],
+      })
+
+      const {view} = await display(layout)
+
+      const pv = view.owner.get_one(p00)
+      const actions = new PlotActions(pv)
+      await actions.hover(xy(2, 1))
+    })
+
+    it("allows to cut tooltips short in layouts", async () => {
+      const p00 = plot("red")
+      const p01 = plot("green")
+      const p10 = plot("blue")
+      const p11 = plot("yellow")
+
+      const layout = new Column({
+        children: [
+          new Row({children: [p00, p01]}),
+          new Row({children: [p10, p11]}),
+        ],
+      })
+
+      const {view} = await display(layout)
+
+      const pv = view.owner.get_one(p00)
+      const actions = new PlotActions(pv)
+      await actions.hover(xy(2, 1))
+    })
+  })
+
+  describe("in issue #4888", () => {
+    const N = 50
+    const M = 10
+
+    function plot(output_backend: OutputBackend) {
+      const random = new Random(1)
+
+      const p = fig([300, 300], {output_backend})
+
+      for (let i = 0; i < N; i++) {
+        const x = random.floats(M)
+        const y = random.floats(M)
+        p.line({x, y})
+      }
+
+      return p
+    }
+
+    it(`doesn't allow to render many (N=${N}) canvas glyphs efficiently`, async () => {
+      const p = plot("canvas")
+      await display(p)
+    })
+
+    it(`doesn't allow to render many (N=${N}) svg glyphs efficiently`, async () => {
+      const p = plot("svg")
+      await display(p)
+    })
+
+    it(`doesn't allow to render many (N=${N}) webgl glyphs efficiently`, async () => {
+      const p = plot("webgl")
+      await display(p)
+    })
+  })
+
+  describe("in issue #12578", () => {
+    it("doesn't allow to use proxied action tools on all plots", async () => {
+      function plot(color: Color) {
+        const tool = new ZoomInTool()
+        const plot = fig([300, 300], {toolbar_location: null, tools: [tool]})
+        plot.circle([1, 2, 3, 4, 5], [1, 2, 3, 4, 5], {size: 10, color})
+        return {plot, tool}
+      }
+
+      const p00 = plot("red")
+      const p01 = plot("green")
+      const p10 = plot("blue")
+      const p11 = plot("purple")
+
+      const zoom_in = new ToolProxy({
+        tools: [
+          p00.tool,
+          p01.tool,
+          p10.tool,
+          p11.tool,
+        ],
+      })
+      const zoom_in_btn = zoom_in.tool_button()
+
+      const toolbar = new Toolbar({
+        tools: [zoom_in],
+        buttons: [zoom_in_btn],
+      })
+
+      const gp = new GridPlot({
+        children: [
+          [p00.plot, 0, 0],
+          [p01.plot, 0, 1],
+          [p10.plot, 1, 0],
+          [p11.plot, 1, 1],
+        ],
+        toolbar,
+      })
+
+      const {view} = await display(gp)
+
+      const btn = view.owner.get_one(zoom_in_btn)
+      await click(btn.el)
+    })
+  })
+
+  describe("in issue #12585", () => {
+    it("doesn't allow support for line_policy=none with mode=vline", async () => {
+      const hover = new HoverTool({
+        mode: "vline",
+        line_policy: "none",
+        tooltips: [["x", "$x"], ["y", "$y"]],
+      })
+      const p = fig([200, 200], {tools: [hover]})
+      const r = p.line([1, 2, 3], [1, 1, 1])
+
+      const {view} = await display(p)
+
+      const pt = xy(1.8, 1.5)
+
+      const actions = new PlotActions(view)
+      actions.hover(pt)
+
+      await view.ready
+
+      const hover_view = view.owner.get_one(hover)
+      const [tt] = hover_view.ttmodels.values()
+
+      const crv = view.owner.get_one(r)
+      const [[sx], [sy]] = crv.coordinates.map_to_screen([pt.x], [pt.y])
+
+      // TODO: tt.position is not guarantted to be whole pixels (?)
+      assert(isArray(tt.position))
+      const [px, py] = tt.position
+      expect([px|0, py|0]).to.be.equal([sx|0, sy|0])
+    })
+  })
+
+  describe("in issue #12583", () => {
+    function plot(color: Color) {
+      const p = fig([100, 100])
+      p.circle([1, 2, 3], [1, 2, 3], {size: 10, color})
+      return p
+    }
+
+    function gp() {
+      return new GridPlot({
+        toolbar_location: null,
+        children: [
+          [plot("red"), 0, 0],
+          [plot("green"), 0, 1],
+          [plot("blue"), 1, 0],
+          [plot("purple"), 1, 1],
+        ],
+      })
+    }
+
+    function row() {
+      return new Row({children: [plot("lime"), plot("orange")]})
+    }
+
+    it("doesn't allow layout propagation in Column(Column(GridPlot()))", async () => {
+      const layout = new Column({
+        children: [
+          new Column({children: [gp()]}),
+        ],
+      })
+      await display(layout)
+    })
+
+    it("doesn't allow layout propagation in Column(GridPlot, Row)", async () => {
+      const layout = new Column({
+        children: [gp(), row()],
+      })
+      await display(layout)
+    })
+
+    it("doesn't allow layout propagation in Column(Column(GridPlot(), Row()))", async () => {
+      const layout = new Column({
+        children: [
+          new Column({children: [gp(), row()]}),
+        ],
+      })
+      await display(layout)
+    })
+  })
+
+  describe("in issue #12640", () => {
+    it("doesn't allow layout computation for initially undisplayed components", async () => {
+      const plot = fig([200, 200])
+      plot.circle([1, 2, 3], [1, 2, 3], {size: 10})
+
+      const pane = new Pane({
+        stylesheets: [`
+          :host {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 250px;
+            height: 250px;
+            background-color: gray;
+          }
+        `],
+        styles: {display: "none"},
+        children: [plot],
+      })
+
+      const {view} = await display(pane, [300, 300])
+
+      pane.styles = {display: "flex"}
+      await view.ready
+
+      // TODO: this really shouldn't be necessary, because the test framework already awaits
+      // for painting, but it looks like one await cycle is not enough for resize observer
+      // to do its job.
+      await paint()
+    })
+  })
+
+  describe("in issue #12410", () => {
+    it("allows positioning of hover tool tooltips outside the frame", async () => {
+      const plot = fig([200, 200], {x_range: [1, 2], y_range: [1, 2], tools: "hover"})
+      plot.circle([0.9], [0.9], {radius: 0.5})
+
+      const {view} = await display(plot)
+
+      const actions = new PlotActions(view)
+      actions.hover(xy(1.1, 1.1))
+    })
+  })
+
+  describe("in issue #12592", () => {
+    it("allows to select circles outside the selection geometry", async () => {
+      const p = fig([200, 200], {
+        x_axis_location: null,
+        y_axis_location: null,
+        outline_line_color: "black",
+      })
+      const g = p.circle([1, 2, 3], [1, 2, 3], {radius: 0.5})
+
+      const {view: pv} = await display(p)
+      const gv = pv.owner.get_one(g)
+      const sel = gv.model.get_selection_manager()
+      const [sx0, sx1] = pv.frame.x_scale.r_compute(1.25, 2.25)
+      const [sy0, sy1] = pv.frame.y_scale.r_compute(1.25, 2.25)
+      sel.select([gv], {type: "rect", sx0, sy0, sx1, sy1}, true, "append")
+      await pv.ready
     })
   })
 })

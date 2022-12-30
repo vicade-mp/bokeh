@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# External imports
+import pandas as pd
+
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.sprint as bss # isort:skip
@@ -37,7 +40,7 @@ ALL = (
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.sprint", ALL))
 
 @pytest.mark.sampledata
-def test_sprint(pd) -> None:
+def test_sprint() -> None:
     import bokeh.sampledata.sprint as bss
     assert isinstance(bss.sprint, pd.DataFrame)
 

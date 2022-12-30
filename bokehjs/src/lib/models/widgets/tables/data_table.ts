@@ -4,13 +4,13 @@ import {CellExternalCopyManager} from "@bokeh/slickgrid/plugins/slick.cellextern
 
 import {Grid as SlickGrid, DataProvider, SortColumn, OnSortEventArgs, OnSelectedRowsChangedEventArgs} from "@bokeh/slickgrid"
 import * as p from "core/properties"
-import {div, position, StyleSheetLike} from "core/dom"
-import {uniqueId} from "core/util/string"
+import {div, StyleSheetLike} from "core/dom"
+import {unique_id} from "core/util/string"
 import {isString, isNumber, is_defined} from "core/util/types"
 import {some, range} from "core/util/array"
 import {keys} from "core/util/object"
 import {logger} from "core/logging"
-import {BoxSizing} from "core/layout"
+import {DOMBoxSizing} from "../../layouts/layout_dom"
 
 import {WidgetView} from "../widget"
 import {ColumnType, Item, DTINDEX_NAME} from "./definitions"
@@ -18,7 +18,7 @@ import {TableWidget} from "./table_widget"
 import {TableColumn} from "./table_column"
 import {ColumnDataSource} from "../../sources/column_data_source"
 import {CDSView, CDSViewView} from "../../sources/cds_view"
-import {build_view} from "core/build_views"
+import {build_view, IterViews} from "core/build_views"
 
 import tables_css, * as tables from "styles/widgets/tables.css"
 import slickgrid_css from "styles/widgets/slickgrid.css"
@@ -133,10 +133,9 @@ export class DataTableView extends WidgetView {
 
   protected wrapper_el: HTMLElement
 
-  override initialize(): void {
-    super.initialize()
-    this.wrapper_el = div({class: tables.data_table})
-    this.shadow_el.appendChild(this.wrapper_el)
+  override *children(): IterViews {
+    yield* super.children()
+    yield this.cds_view
   }
 
   override async lazy_initialize(): Promise<void> {
@@ -174,19 +173,13 @@ export class DataTableView extends WidgetView {
     return [...super.styles(), slickgrid_css, tables_css]
   }
 
-  override update_position(): void {
-    super.update_position()
-    const {width, height} = this.layout.bbox
-    position(this.wrapper_el, {x: 0, y: 0, width, height})
+  override _after_resize(): void {
+    super._after_resize()
     this.grid.resizeCanvas()
-  }
-
-  override after_layout(): void {
-    super.after_layout()
     this.updateLayout(true, false)
   }
 
-  override box_sizing(): Partial<BoxSizing> {
+  override box_sizing(): DOMBoxSizing {
     const sizing = super.box_sizing()
     if (this.model.autosize_mode === "fit_viewport" && this._width != null)
       sizing.width = this._width
@@ -256,7 +249,7 @@ export class DataTableView extends WidgetView {
 
   newIndexColumn(): ColumnType {
     return {
-      id: uniqueId(),
+      id: unique_id(),
       name: this.model.index_header,
       field: DTINDEX_NAME,
       width: this.model.index_width,
@@ -282,6 +275,15 @@ export class DataTableView extends WidgetView {
   }
 
   override render(): void {
+    super.render()
+
+    this.wrapper_el = div({class: tables.data_table})
+    this.shadow_el.appendChild(this.wrapper_el)
+
+    this._render()
+  }
+
+  protected _render(): void {
     const columns: ColumnType[] = this.model.columns.filter((column) => column.visible).map((column) => {
       return {...column.toColumn(), parent: this}
     })

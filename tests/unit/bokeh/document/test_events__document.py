@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# Standard library imports
+from unittest.mock import MagicMock, patch
+
 # External imports
-from mock import MagicMock, patch
+import pandas as pd
 
 # Bokeh imports
 from bokeh.core.properties import Any, ColumnData, Instance
@@ -310,7 +313,7 @@ class TestColumnsStreamedEvent:
         assert e.data == dict(foo=1)
         assert e.rollover == 200
 
-    def test_pandas_data(self, pd) -> None:
+    def test_pandas_data(self) -> None:
         doc = Document()
         m = SomeModel()
         df = pd.DataFrame({'x': [1, 2, 3], 'y': [4, 5, 6]})

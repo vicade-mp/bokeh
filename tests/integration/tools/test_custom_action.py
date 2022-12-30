@@ -18,17 +18,17 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.plugins.project import SinglePlotPage
-from bokeh._testing.util.selenium import RECORD
 from bokeh.models import CustomAction, CustomJS
 from bokeh.plotting import figure
+from tests.support.plugins.project import SinglePlotPage
+from tests.support.util.selenium import RECORD
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 
@@ -41,7 +41,8 @@ class Test_CustomAction:
 
         page = single_plot_page(plot)
 
-        page.get_toolbar_button("custom-action").click()
+        [button] = page.get_toolbar_buttons(plot)
+        button.click()
         assert page.results["activated"] is True
 
         assert page.has_no_console_errors()

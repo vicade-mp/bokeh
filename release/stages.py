@@ -7,10 +7,7 @@
 from __future__ import annotations
 
 # Standard library imports
-from typing import Tuple
-
-# External imports
-from typing_extensions import TypeAlias
+from typing import TYPE_CHECKING, Tuple
 
 # Bokeh imports
 from .build import (
@@ -18,15 +15,18 @@ from .build import (
     build_conda_packages,
     build_docs,
     build_npm_packages,
-    build_sdist_packages,
-    build_wheel_packages,
-    dev_install,
+    build_pip_packages,
+    dev_install_bokehjs,
     install_bokehjs,
     npm_install,
     pack_deployment_tarball,
     update_bokehjs_versions,
     update_changelog,
     update_hash_manifest,
+    verify_conda_install,
+    verify_pip_install_from_sdist,
+    verify_pip_install_using_sdist,
+    verify_pip_install_using_wheel,
 )
 from .checks import (
     check_anaconda_present,
@@ -72,6 +72,9 @@ from .git import (
 from .pipeline import StepType
 from .remote import download_deployment_tarball, publish_bokehjs_to_cdn, upload_deployment_tarball
 
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
+
 __all__ = (
     "BUILD_CHECKS",
     "BUILD_STEPS",
@@ -105,16 +108,19 @@ BUILD_STEPS: StepListType = (
     update_changelog,
     npm_install,
     build_bokehjs,
+    dev_install_bokehjs,
     install_bokehjs,
-    dev_install,
     update_hash_manifest,
     commit_staging_branch,
     check_checkout_is_clean,
     tag_release_version,
     build_npm_packages,
+    build_pip_packages,
+    verify_pip_install_from_sdist,
+    verify_pip_install_using_sdist,
+    verify_pip_install_using_wheel,
     build_conda_packages,
-    build_sdist_packages,
-    build_wheel_packages,
+    verify_conda_install,
     build_docs,
     pack_deployment_tarball,
     upload_deployment_tarball,

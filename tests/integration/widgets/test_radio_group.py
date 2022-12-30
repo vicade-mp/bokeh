@@ -18,12 +18,9 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # External imports
-from flaky import flaky
 from selenium.webdriver.common.by import By
 
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import RECORD, find_element_for, find_elements_for
 from bokeh.layouts import column
 from bokeh.models import (
     Circle,
@@ -33,13 +30,15 @@ from bokeh.models import (
     RadioGroup,
     Range1d,
 )
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import RECORD, find_element_for, find_elements_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 LABELS = ["Option 1", "Option 2", "Option 3"]
@@ -61,7 +60,6 @@ class Test_RadioGroup:
             assert input.get_attribute('value') == str(i)
             assert input.get_attribute('type') == 'radio'
 
-    @flaky(max_runs=10)
     def test_server_on_change_round_trip(self, bokeh_server_page: BokehServerPage) -> None:
         group = RadioGroup(labels=LABELS)
         def modify_doc(doc):
@@ -92,8 +90,7 @@ class Test_RadioGroup:
         results = page.results
         assert results['data']['val'] == [0, "b"]
 
-        # XXX (bev) disabled until https://github.com/bokeh/bokeh/issues/7970 is resolved
-        #assert page.has_no_console_errors()
+        assert page.has_no_console_errors()
 
     def test_js_on_change_executes(self, bokeh_model_page: BokehModelPage) -> None:
         group = RadioGroup(labels=LABELS)

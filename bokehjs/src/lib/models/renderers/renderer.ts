@@ -6,7 +6,7 @@ import {Model} from "../../model"
 import {CanvasLayer} from "core/util/canvas"
 import type {Plot, PlotView} from "../plots/plot"
 import type {CanvasView} from "../canvas/canvas"
-import {CoordinateTransform, CoordinateMapping} from "../canvas/coordinates"
+import {CoordinateTransform, CoordinateMapping} from "../coordinates/coordinate_mapping"
 
 export namespace RendererGroup {
   export type Attrs = p.AttrsOf<Props>
@@ -152,6 +152,16 @@ export abstract class RendererView extends View implements visuals.Renderable {
   renderer_view<T extends Renderer>(_renderer: T): T["__view_type__"] | undefined {
     return undefined
   }
+
+  /**
+   * Geometry setup that doesn't change between paints.
+   */
+  update_geometry(): void {}
+
+  /**
+   * Geometry setup that changes between paints.
+   */
+  compute_geometry(): void {}
 }
 
 export namespace Renderer {

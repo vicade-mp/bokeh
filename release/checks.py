@@ -77,7 +77,7 @@ def check_repo_is_bokeh(config: Config, system: System) -> ActionReturn:
 @skip_for_prerelease
 def check_release_notes_present(config: Config, system: System) -> ActionReturn:
     try:
-        if os.path.exists(Path(f"sphinx/source/docs/releases/{config.version}.rst")):
+        if os.path.exists(Path(f"docs/bokeh/source/docs/releases/{config.version}.rst")):
             return PASSED(f"Release notes file '{config.version}.rst' exists")
         else:
             return FAILED(f"Release notes file '{config.version}.rst' does NOT exist")
@@ -131,14 +131,11 @@ def check_checkout_matches_remote(config: Config, system: System) -> ActionRetur
 @skip_for_prerelease
 def check_docs_version_config(config: Config, system: System) -> ActionReturn:
     try:
-        with open(Path("sphinx/switcher.json")) as fp:
-            versions = json.load(fp)
-            all_versions = versions["all"]
-            latest_version = versions["latest"]
+        with open(Path("docs/bokeh/switcher.json")) as fp:
+            switcher = json.load(fp)
+            all_versions = set(x["version"] for x in switcher if "version" in x)
             if config.version not in all_versions:
-                return FAILED(f"Version {config.version!r} is missing from 'all' versions")
-            if V(config.version) > V(latest_version):
-                return FAILED(f"Version {config.version!r} is not configured as 'latest' version")
+                return FAILED(f"Version {config.version!r} is missing from switcher.json")
             return PASSED("Docs versions config is correct")
     except RuntimeError as e:
         return FAILED("Could not check docs versions config", details=e.args)

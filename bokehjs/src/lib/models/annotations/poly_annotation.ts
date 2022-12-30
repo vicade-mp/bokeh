@@ -2,9 +2,10 @@ import {Annotation, AnnotationView} from "./annotation"
 import {Scale} from "../scales/scale"
 import * as mixins from "core/property_mixins"
 import * as visuals from "core/visuals"
-import {SpatialUnits} from "core/enums"
+import {CoordinateUnits} from "core/enums"
 import {Arrayable} from "core/types"
 import {CoordinateMapper} from "core/util/bbox"
+import {copy} from "core/util/array"
 import * as p from "core/properties"
 
 export class PolyAnnotationView extends AnnotationView {
@@ -32,12 +33,15 @@ export class PolyAnnotationView extends AnnotationView {
     const xscale = this.coordinates.x_scale
     const yscale = this.coordinates.y_scale
 
-    const {screen} = this.model
-    function _calc_dim(values: Arrayable<number>, units: SpatialUnits, scale: Scale, view: CoordinateMapper): Arrayable<number> {
-      if (screen)
-        return values
-      else
-        return units == "data" ? scale.v_compute(values) : view.v_compute(values)
+    function _calc_dim(values: Arrayable<number>, units: CoordinateUnits, scale: Scale, view: CoordinateMapper): Arrayable<number> {
+      switch (units) {
+        case "canvas":
+          return values
+        case "screen":
+          return view.v_compute(values)
+        case "data":
+          return scale.v_compute(values)
+      }
     }
 
     const sxs = _calc_dim(xs, this.model.xs_units, xscale, frame.bbox.xview)
@@ -60,10 +64,9 @@ export namespace PolyAnnotation {
 
   export type Props = Annotation.Props & {
     xs: p.Property<number[]>
-    xs_units: p.Property<SpatialUnits>
     ys: p.Property<number[]>
-    ys_units: p.Property<SpatialUnits>
-    screen: p.Property<boolean>
+    xs_units: p.Property<CoordinateUnits>
+    ys_units: p.Property<CoordinateUnits>
   } & Mixins
 
   export type Mixins = mixins.Line & mixins.Fill & mixins.Hatch
@@ -87,14 +90,10 @@ export class PolyAnnotation extends Annotation {
     this.mixins<PolyAnnotation.Mixins>([mixins.Line, mixins.Fill, mixins.Hatch])
 
     this.define<PolyAnnotation.Props>(({Number, Array}) => ({
-      xs:           [ Array(Number), [] ],
-      xs_units:     [ SpatialUnits, "data" ],
-      ys:           [ Array(Number), [] ],
-      ys_units:     [ SpatialUnits, "data" ],
-    }))
-
-    this.internal<PolyAnnotation.Props>(({Boolean}) => ({
-      screen: [ Boolean, false ],
+      xs:       [ Array(Number), [] ],
+      ys:       [ Array(Number), [] ],
+      xs_units: [ CoordinateUnits, "data" ],
+      ys_units: [ CoordinateUnits, "data" ],
     }))
 
     this.override<PolyAnnotation.Props>({
@@ -106,6 +105,10 @@ export class PolyAnnotation extends Annotation {
   }
 
   update({xs, ys}: {xs: number[], ys: number[]}): void {
-    this.setv({xs, ys, screen: true}, {check_eq: false}) // XXX: because of inplace updates in tools
+    this.setv({xs: copy(xs), ys: copy(ys), visible: true})
+  }
+
+  clear(): void {
+    this.setv({xs: [], ys: [], visible: false})
   }
 }

@@ -20,12 +20,10 @@ import pytest ; pytest
 import os
 import sys
 import webbrowser
-
-# External imports
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 # Bokeh imports
-from bokeh._testing.util.env import envset
+from tests.support.util.env import envset
 
 # Module under test
 import bokeh.util.browser as bub # isort:skip

@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# External imports
+import pandas as pd
+
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.sea_surface_temperature as bss # isort:skip
@@ -37,7 +40,7 @@ ALL = (
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.sea_surface_temperature", ALL))
 
 @pytest.mark.sampledata
-def test_sea_surface_temperature(pd) -> None:
+def test_sea_surface_temperature() -> None:
     import bokeh.sampledata.sea_surface_temperature as bss
     assert isinstance(bss.sea_surface_temperature, pd.DataFrame)
 

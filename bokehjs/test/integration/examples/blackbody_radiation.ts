@@ -70,12 +70,10 @@ describe("Examples", () => {
     })
 
     p.y_range.start = 0
-    p.xaxis.axis_label = tex`\color{white} \nu \:(10^{15} s^{-1})`
-    p.yaxis.axis_label = tex`\color{white} B_\nu(\nu, T) \quad(10^{-9} J s m^{-3})`
+    p.xaxis.axis_label = tex`\color{white} \nu \:(10^{15}\ \text{Hz})`
+    p.yaxis.axis_label = tex`\color{white} B_\nu(\nu, T) \quad\left(10^{-9}\ \text{W} / (\text{m}^2 \cdot \text{sr} \cdot \text{Hz})\right)`
 
     const div = new Div({
-      width: 700,
-      height: 100,
       text: r`
         A plot of the spectral radiance, defined as a function of the frequency $$\nu$$, is given by the formula
         <p \>

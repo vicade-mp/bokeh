@@ -17,7 +17,7 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 import bokeh.plotting as bp # isort:skip
@@ -28,6 +28,7 @@ import bokeh.plotting as bp # isort:skip
 
 ALL = (
     'column',
+    'Column',
     'ColumnDataSource',
     'curdoc',
     'DEFAULT_TOOLS',
@@ -42,6 +43,7 @@ ALL = (
     'output_notebook',
     'reset_output',
     'row',
+    'Row',
     'save',
     'show',
 )

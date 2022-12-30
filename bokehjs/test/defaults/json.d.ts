@@ -1,4 +1,4 @@
-declare module "*.json" {
-  const value: {[key: string]: any}
-  export = value
+declare module "*/defaults.json5" {
+  const json: string
+  export default json
 }

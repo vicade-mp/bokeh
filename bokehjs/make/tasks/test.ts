@@ -3,6 +3,7 @@ import {argv} from "yargs"
 import {join, delimiter, basename, extname, dirname} from "path"
 import chalk from "chalk"
 import which from "which"
+import fs from "fs"
 
 import {task, task2, success, passthrough, BuildError} from "../task"
 import * as paths from "../paths"
@@ -147,6 +148,15 @@ async function server(port: number): Promise<ChildProcess> {
   })
 }
 
+function opts(name: string, value: unknown): string[] {
+  if (Array.isArray(value))
+    return value.map((v) => `--${name}=${v}`)
+  else if (value != null)
+    return [`--${name}=${value}`]
+  else
+    return [""]
+}
+
 function opt(name: string, value: unknown): string {
   return value != null ? `--${name}=${value}` : ""
 }
@@ -154,10 +164,12 @@ function opt(name: string, value: unknown): string {
 function devtools(devtools_port: number, server_port: number, name: string, baselines_root?: string): Promise<void> {
   const args = [
     `http://localhost:${server_port}/${name}`,
-    opt("k", argv.k),
-    opt("grep", argv.grep),
+    ...opts("k", argv.k),
+    ...opts("grep", argv.grep),
     opt("ref", argv.ref),
     opt("baselines-root", baselines_root),
+    opt("randomize", argv.randomize),
+    opt("seed", argv.seed),
     `--screenshot=${argv.screenshot ?? "test"}`,
   ]
   return _devtools(devtools_port, args)
@@ -246,7 +258,7 @@ function compile(name: string, options?: {auto_index?: boolean}) {
         if (file.startsWith(base_dir) && (file.endsWith(".ts") || file.endsWith(".tsx"))) {
           const ext = extname(file)
           const name = basename(file, ext)
-          if (!name.startsWith("_") && !name.endsWith(".d")) {
+          if (!name.startsWith("_") && !name.endsWith(".d") && name != "index") {
             const dir = dirname(file).replace(base_dir, "").replace(/^\//, "")
             const module = dir == "" ? `./${name}` : [".", ...dir.split("/"), name].join("/")
             imports.push(`import "${module}"`)
@@ -255,8 +267,13 @@ function compile(name: string, options?: {auto_index?: boolean}) {
       }
 
       const index = `${base_dir}/index.ts`
-      const source = imports.join("\n")
 
+      if (fs.existsSync(index)) {
+        const content = fs.readFileSync(index, {encoding: "utf-8"})
+        imports.unshift(content)
+      }
+
+      const source = imports.join("\n")
       return new Map([[index, source]])
     },
   })
@@ -317,8 +334,19 @@ task2("test:integration", [start, build_integration], async ([devtools_port, ser
   return success(undefined)
 })
 
-task("test:defaults:compile", ["defaults:generate"], async () => compile("defaults"))
-const build_defaults = task("test:build:defaults", [passthrough("test:defaults:compile")], async () => await bundle("defaults"))
+async function copy_defaults() {
+  const bokehjs_dir = process.cwd()
+  const name = "defaults.json5"
+  const src = join(bokehjs_dir, "..", "tests", "baselines", name)
+  const dst = join(bokehjs_dir, "build", "test", "defaults", name)
+  await fs.promises.copyFile(src, dst)
+}
+
+task("test:defaults:compile", async () => compile("defaults"))
+const build_defaults = task("test:build:defaults", [passthrough("test:defaults:compile")], async () => {
+  await copy_defaults()
+  await bundle("defaults")
+})
 
 task2("test:defaults", [start, build_defaults], async ([devtools_port, server_port]) => {
   await devtools(devtools_port, server_port, "defaults")

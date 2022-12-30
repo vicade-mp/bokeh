@@ -103,6 +103,10 @@ export function update_range(range: Range1d, scale: Scale, delta: number, plot_r
 export class RangeToolView extends GestureToolView {
   override model: RangeTool
 
+  override get overlays() {
+    return [...super.overlays, this.model.overlay]
+  }
+
   private last_dx: number
   private last_dy: number
   private side: Side
@@ -164,8 +168,8 @@ export class RangeToolView extends GestureToolView {
   override _pan(ev: PanEvent): void {
     const frame = this.plot_view.frame
 
-    const new_dx = ev.deltaX - this.last_dx
-    const new_dy = ev.deltaY - this.last_dy
+    const new_dx = ev.dx - this.last_dx
+    const new_dy = ev.dy - this.last_dy
 
     const xr = this.model.x_range
     const yr = this.model.y_range
@@ -197,8 +201,8 @@ export class RangeToolView extends GestureToolView {
       }
     }
 
-    this.last_dx = ev.deltaX
-    this.last_dy = ev.deltaY
+    this.last_dx = ev.dx
+    this.last_dy = ev.dy
   }
 
   override _pan_end(_ev: PanEvent): void {
@@ -209,6 +213,7 @@ export class RangeToolView extends GestureToolView {
 
 const DEFAULT_RANGE_OVERLAY = () => {
   return new BoxAnnotation({
+    syncable: false,
     level: "overlay",
     fill_color: "lightgrey",
     fill_alpha: 0.5,
@@ -236,8 +241,6 @@ export interface RangeTool extends RangeTool.Attrs {}
 export class RangeTool extends GestureTool {
   override properties: RangeTool.Props
   override __view_type__: RangeToolView
-
-  override overlay: BoxAnnotation
 
   constructor(attrs?: Partial<RangeTool.Attrs>) {
     super(attrs)
@@ -292,8 +295,4 @@ export class RangeTool extends GestureTool {
   override tool_icon = tool_icon_range
   override event_type = "pan" as "pan"
   override default_order = 1
-
-  override get computed_overlays() {
-    return [...super.computed_overlays, this.overlay]
-  }
 }

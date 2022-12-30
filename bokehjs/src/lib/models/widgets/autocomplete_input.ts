@@ -1,7 +1,8 @@
 import {TextInput, TextInputView} from "./text_input"
 
-import {empty, display, undisplay, div, Keys, StyleSheetLike} from "core/dom"
+import {empty, display, undisplay, div, StyleSheetLike} from "core/dom"
 import * as p from "core/properties"
+import {take} from "core/util/iterator"
 import {clamp} from "core/util/math"
 
 import dropdown_css, * as dropdown from "styles/dropdown.css"
@@ -26,6 +27,7 @@ export class AutocompleteInputView extends TextInputView {
 
     this.input_el.addEventListener("keydown", (event) => this._keydown(event))
     this.input_el.addEventListener("keyup", (event) => this._keyup(event))
+    this.input_el.addEventListener("focusin", () => this._toggle_menu())
 
     this.menu = div({class: [dropdown.menu, dropdown.below]})
     this.menu.addEventListener("click", (event) => this._menu_click(event))
@@ -47,12 +49,43 @@ export class AutocompleteInputView extends TextInputView {
   protected _update_completions(completions: string[]): void {
     empty(this.menu)
 
-    for (const text of completions) {
+    const {max_completions} = this.model
+    const selected_completions = max_completions != null ? take(completions, max_completions) : completions
+
+    for (const text of selected_completions) {
       const item = div(text)
-      this.menu.appendChild(item)
+      this.menu.append(item)
     }
-    if (completions.length > 0)
-      this.menu.children[0].classList.add(dropdown.active)
+
+    this.menu.firstElementChild?.classList.add(dropdown.active)
+  }
+
+  protected _toggle_menu(): void {
+    const {value} = this.input_el
+
+    if (value.length < this.model.min_characters) {
+      this._hide_menu()
+      return
+    }
+
+    const acnorm = (() => {
+      const {case_sensitive} = this.model
+      return case_sensitive ? (t: string) => t : (t: string) => t.toLowerCase()
+    })()
+
+    const completions: string[] = []
+    for (const text of this.model.completions) {
+      if (acnorm(text).startsWith(acnorm(value))) {
+        completions.push(text)
+      }
+    }
+
+    this._update_completions(completions)
+
+    if (completions.length == 0)
+      this._hide_menu()
+    else
+      this._show_menu()
   }
 
   protected _show_menu(): void {
@@ -110,53 +143,25 @@ export class AutocompleteInputView extends TextInputView {
   _keydown(_event: KeyboardEvent): void {}
 
   _keyup(event: KeyboardEvent): void {
-    switch (event.keyCode) {
-      case Keys.Enter: {
+    switch (event.key) {
+      case "Enter": {
         this.change_input()
         break
       }
-      case Keys.Esc: {
+      case "Escape": {
         this._hide_menu()
         break
       }
-      case Keys.Up: {
-        this._bump_hover(this._hover_index-1)
+      case "ArrowUp": {
+        this._bump_hover(this._hover_index - 1)
         break
       }
-      case Keys.Down: {
-        this._bump_hover(this._hover_index+1)
+      case "ArrowDown": {
+        this._bump_hover(this._hover_index + 1)
         break
       }
-      default: {
-        const value = this.input_el.value
-
-        if (value.length < this.model.min_characters) {
-          this._hide_menu()
-          return
-        }
-
-        const completions: string[] = []
-        const {case_sensitive} = this.model
-        let acnorm: (t: string) => string
-        if (case_sensitive) {
-          acnorm = (t) => t
-        } else {
-          acnorm = (t) => t.toLowerCase()
-        }
-
-        for (const text of this.model.completions) {
-          if (acnorm(text).startsWith(acnorm(value))) {
-            completions.push(text)
-          }
-        }
-
-        this._update_completions(completions)
-
-        if (completions.length == 0)
-          this._hide_menu()
-        else
-          this._show_menu()
-      }
+      default:
+        this._toggle_menu()
     }
   }
 }
@@ -167,6 +172,7 @@ export namespace AutocompleteInput {
   export type Props = TextInput.Props & {
     completions: p.Property<string[]>
     min_characters: p.Property<number>
+    max_completions: p.Property<number | null>
     case_sensitive: p.Property<boolean>
     restrict: p.Property<boolean>
   }
@@ -185,9 +191,10 @@ export class AutocompleteInput extends TextInput {
   static {
     this.prototype.default_view = AutocompleteInputView
 
-    this.define<AutocompleteInput.Props>(({Boolean, Int, String, Array}) => ({
+    this.define<AutocompleteInput.Props>(({Boolean, Int, String, Array, NonNegative, Positive, Nullable}) => ({
       completions:    [ Array(String), [] ],
-      min_characters: [ Int, 2 ],
+      min_characters: [ NonNegative(Int), 2 ],
+      max_completions: [ Nullable(Positive(Int)), null ],
       case_sensitive: [ Boolean, true ],
       restrict: [ Boolean, true ],
     }))

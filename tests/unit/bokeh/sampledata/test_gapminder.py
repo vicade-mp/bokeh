@@ -17,7 +17,7 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.gapminder as bsg # isort:skip
@@ -41,7 +41,9 @@ Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.gapminder", A
 
 @pytest.mark.sampledata
 @pytest.mark.parametrize('name', ['fertility', 'life_expectancy', 'population', 'regions'])
-def test_data(pd, name) -> None:
+def test_data(name) -> None:
+    import pandas as pd
+
     import bokeh.sampledata.gapminder as bsg
     data = getattr(bsg, name)
     assert isinstance(data, pd.DataFrame)

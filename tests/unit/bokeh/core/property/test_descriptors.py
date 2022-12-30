@@ -18,14 +18,12 @@ import pytest ; pytest
 
 # Standard library imports
 import typing as tp
-
-# External imports
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
 from bokeh.core.properties import Int, List, Nullable
 from bokeh.model import Model
+from tests.support.util.api import verify_all
 
 # Module under test
 import bokeh.core.property.descriptors as bcpd # isort:skip
@@ -117,7 +115,7 @@ class Test_PropertyDescriptor:
         model_unstable_default_values = dict(
             js_event_callbacks={},
             js_property_callbacks={},
-            subscribed_events=[],
+            subscribed_events=set(),
             tags=[],
         )
 

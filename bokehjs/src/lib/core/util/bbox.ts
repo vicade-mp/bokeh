@@ -2,7 +2,7 @@ import {Arrayable, ScreenArray, Rect, Box, Interval, Size} from "../types"
 import {equals, Equatable, Comparator} from "./eq"
 import {Rect as GraphicsRect} from "./affine"
 
-const {min, max} = Math
+const {min, max, round} = Math
 
 export function empty(): Rect {
   return {
@@ -40,6 +40,18 @@ export function union(a: Rect, b: Rect): Rect {
   }
 }
 
+export type XY<T = number> = {
+  x: T
+  y: T
+}
+
+export type LRTB<T = number> = {
+  left: T
+  right: T
+  top: T
+  bottom: T
+}
+
 export type HorizontalPosition =
   {left: number,    width: number} |
   {width: number,   right: number} |
@@ -56,6 +68,8 @@ export type Position = HorizontalPosition & VerticalPosition
 export type CoordinateMapper = {
   compute: (v: number) => number
   v_compute: (vv: Arrayable<number>) => ScreenArray
+  invert: (sv: number) => number
+  v_invert: (svv: ScreenArray) => Arrayable<number>
 }
 
 export class BBox implements Rect, Equatable {
@@ -141,13 +155,17 @@ export class BBox implements Rect, Equatable {
     }
   }
 
-  static from_rect({left, right, top, bottom}: {left: number, right: number, top: number, bottom: number}): BBox {
+  static from_lrtb({left, right, top, bottom}: LRTB): BBox {
     return new BBox({
       x0: Math.min(left, right),
       y0: Math.min(top, bottom),
       x1: Math.max(left, right),
       y1: Math.max(top, bottom),
     })
+  }
+
+  clone(): BBox {
+    return new BBox(this)
   }
 
   equals(that: Rect): boolean {
@@ -164,13 +182,18 @@ export class BBox implements Rect, Equatable {
     return `BBox({left: ${this.left}, top: ${this.top}, width: ${this.width}, height: ${this.height}})`
   }
 
+  get is_empty(): boolean {
+    const {x0, x1, y0, y1} = this
+    return x0 == 0 && x1 == 0 && y0 == 0 && y1 == 0
+  }
+
   get left(): number { return this.x0 }
   get top(): number { return this.y0 }
   get right(): number { return this.x1 }
   get bottom(): number { return this.y1 }
 
-  get p0(): [number, number] { return [this.x0, this.y0] }
-  get p1(): [number, number] { return [this.x1, this.y1] }
+  get p0(): XY<number> { return {x: this.x0, y: this.y0} }
+  get p1(): XY<number> { return {x: this.x1, y: this.y1} }
 
   get x(): number { return this.x0 }
   get y(): number { return this.y0 }
@@ -194,6 +217,11 @@ export class BBox implements Rect, Equatable {
     return {x, y, width, height}
   }
 
+  get lrtb(): LRTB {
+    const {left, right, top, bottom} = this
+    return {left, right, top, bottom}
+  }
+
   get h_range(): Interval { return {start: this.x0, end: this.x1} }
   get v_range(): Interval { return {start: this.y0, end: this.y1} }
 
@@ -205,6 +233,15 @@ export class BBox implements Rect, Equatable {
   get vcenter(): number { return (this.top + this.bottom)/2 }
 
   get area(): number { return this.width*this.height }
+
+  round(): BBox {
+    return new BBox({
+      x0: round(this.x0),
+      x1: round(this.x1),
+      y0: round(this.y0),
+      y1: round(this.y1),
+    })
+  }
 
   relative(): BBox {
     const {width, height} = this
@@ -289,12 +326,23 @@ export class BBox implements Rect, Equatable {
         return this.left + x
       },
       v_compute: (xx: Arrayable<number>): ScreenArray => {
-        const _xx = new ScreenArray(xx.length)
+        const sxx = new ScreenArray(xx.length)
         const left = this.left
         for (let i = 0; i < xx.length; i++) {
-          _xx[i] = left + xx[i]
+          sxx[i] = left + xx[i]
         }
-        return _xx
+        return sxx
+      },
+      invert: (sx: number): number => {
+        return sx - this.left
+      },
+      v_invert: (sxx: ScreenArray): Arrayable<number> => {
+        const xx = new ScreenArray(sxx.length)
+        const left = this.left
+        for (let i = 0; i < sxx.length; i++) {
+          xx[i] = sxx[i] - left
+        }
+        return xx
       },
     }
   }
@@ -305,12 +353,23 @@ export class BBox implements Rect, Equatable {
         return this.bottom - y
       },
       v_compute: (yy: Arrayable<number>): ScreenArray => {
-        const _yy = new ScreenArray(yy.length)
+        const syy = new ScreenArray(yy.length)
         const bottom = this.bottom
         for (let i = 0; i < yy.length; i++) {
-          _yy[i] = bottom - yy[i]
+          syy[i] = bottom - yy[i]
         }
-        return _yy
+        return syy
+      },
+      invert: (sy: number): number => {
+        return this.bottom - sy
+      },
+      v_invert: (syy: ScreenArray): Arrayable<number> => {
+        const yy = new ScreenArray(syy.length)
+        const bottom = this.bottom
+        for (let i = 0; i < syy.length; i++) {
+          yy[i] = bottom - syy[i]
+        }
+        return yy
       },
     }
   }

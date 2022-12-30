@@ -1,7 +1,8 @@
-import {expect} from "assertions"
 import * as sinon from "sinon"
 
-import {Keys} from "@bokehjs/core/dom"
+import {expect} from "assertions"
+import {display} from "../../../_util"
+
 import {build_view} from "@bokehjs/core/build_views"
 
 import {Patches, PatchesView} from "@bokehjs/models/glyphs/patches"
@@ -28,7 +29,7 @@ async function make_testcase(): Promise<PolyDrawTestCase> {
     y_range: new Range1d({start: -1, end: 1}),
   })
 
-  const plot_view = (await build_view(plot)).build()
+  const {view: plot_view} = await display(plot)
 
   const data = {
     xs: [[0, 0.5, 1], [0, 0.5, 1]],
@@ -114,7 +115,7 @@ describe("PolyDrawTool", (): void => {
       testcase.draw_tool_view._tap(tap_event)
 
       const moveenter_event = make_move_event(300, 300)
-      const keyup_event = make_key_event(Keys.Backspace)
+      const keyup_event = make_key_event("Backspace")
       testcase.draw_tool_view._move_enter(moveenter_event)
       testcase.draw_tool_view._keyup(keyup_event)
 
@@ -133,7 +134,7 @@ describe("PolyDrawTool", (): void => {
       testcase.draw_tool_view._tap(tap_event)
 
       const moveenter_event = make_move_event(300, 300)
-      const keyup_event = make_key_event(Keys.Esc)
+      const keyup_event = make_key_event("Escape")
       testcase.draw_tool_view._move_enter(moveenter_event)
       testcase.draw_tool_view._keyup(keyup_event)
 
@@ -243,7 +244,7 @@ describe("PolyDrawTool", (): void => {
       testcase.draw_tool_view._doubletap(make_tap_event(300, 300))
       testcase.draw_tool_view._tap(make_tap_event(250, 250))
       testcase.draw_tool_view._move_enter(make_move_event(0, 0))
-      testcase.draw_tool_view._keyup(make_key_event(Keys.Esc))
+      testcase.draw_tool_view._keyup(make_key_event("Escape"))
 
       const new_xs = [0.04424778761061947, -0.13274336283185842]
       const new_ys = [-0, 0.1694915254237288]

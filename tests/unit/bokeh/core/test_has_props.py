@@ -550,22 +550,41 @@ def test_qualified() -> None:
     assert InnerQualified.__qualified_model__ == "test_has_props.test_qualified.InnerQualified"
     assert InnerNonQualified.__qualified_model__ == "test_qualified.InnerNonQualified"
 
-def test_HasProps_properties_with_values_unstable():
-    class Some0HasProps(hp.HasProps, hp.Local):
-        f0 = Int(default=3)
-        f1 = List(Int, default=[3, 4, 5])
+class Some0HasProps(hp.HasProps, hp.Local):
+    f0 = Int(default=3)
+    f1 = List(Int, default=[3, 4, 5])
 
-    class Some1HasProps(hp.HasProps, hp.Local):
-        f0 = String(default="xyz")
-        f1 = List(String, default=["x", "y", "z"])
+class Some1HasProps(hp.HasProps, hp.Local):
+    f0 = String(default="xyz")
+    f1 = List(String, default=["x", "y", "z"])
 
-    class Some2HasProps(hp.HasProps, hp.Local):
-        f0 = Instance(Some0HasProps, lambda: Some0HasProps())
-        f1 = Instance(Some1HasProps, lambda: Some1HasProps())
-        f2 = Int(default=1)
-        f3 = String(default="xyz")
-        f4 = List(Int, default=[1, 2, 3])
+class Some2HasProps(hp.HasProps, hp.Local):
+    f0 = Instance(Some0HasProps, lambda: Some0HasProps())
+    f1 = Instance(Some1HasProps, lambda: Some1HasProps())
+    f2 = Int(default=1)
+    f3 = String(default="xyz")
+    f4 = List(Int, default=[1, 2, 3])
 
+class Some3HasProps(hp.HasProps, hp.Local):
+    f4 = Int(default=4)
+    f3 = Int(default=3)
+    f2 = Int(default=2)
+    f1 = Int(default=1)
+
+def test_HasProps_properties_with_values_maintains_order() -> None:
+    v0 = Some3HasProps()
+    assert list(v0.properties_with_values(include_defaults=False).items()) == []
+    assert list(v0.properties_with_values(include_defaults=True).items()) == [("f4", 4), ("f3", 3), ("f2", 2), ("f1", 1)]
+
+    v1 = Some3HasProps(f1=10, f4=40)
+    assert list(v1.properties_with_values(include_defaults=False).items()) == [("f4", 40), ("f1", 10)]
+    assert list(v1.properties_with_values(include_defaults=True).items()) == [("f4", 40), ("f3", 3), ("f2", 2), ("f1", 10)]
+
+    v2 = Some3HasProps(f4=40, f1=10)
+    assert list(v2.properties_with_values(include_defaults=False).items()) == [("f4", 40), ("f1", 10)]
+    assert list(v2.properties_with_values(include_defaults=True) .items()) == [("f4", 40), ("f3", 3), ("f2", 2), ("f1", 10)]
+
+def test_HasProps_properties_with_values_unstable() -> None:
     v0 = Some0HasProps()
     assert v0.properties_with_values(include_defaults=False) == {}
 
@@ -574,6 +593,31 @@ def test_HasProps_properties_with_values_unstable():
 
     v2 = Some2HasProps()
     assert v2.properties_with_values(include_defaults=False) == {"f0": v2.f0, "f1": v2.f1}
+
+def test_HasProps_descriptors() -> None:
+    v0 = Some0HasProps()
+
+    d0 = v0.descriptors()
+    assert len(d0) == 2
+    assert d0[0].name == "f0"
+    assert d0[1].name == "f1"
+
+    v1 = Some1HasProps()
+
+    d1 = v1.descriptors()
+    assert len(d1) == 2
+    assert d1[0].name == "f0"
+    assert d1[1].name == "f1"
+
+    v2 = Some2HasProps()
+
+    d2 = v2.descriptors()
+    assert len(d2) == 5
+    assert d2[0].name == "f0"
+    assert d2[1].name == "f1"
+    assert d2[2].name == "f2"
+    assert d2[3].name == "f3"
+    assert d2[4].name == "f4"
 
 #-----------------------------------------------------------------------------
 # Private API

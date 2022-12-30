@@ -24,9 +24,9 @@ import ssl
 import sys
 import time
 from datetime import timedelta
+from unittest import mock
 
 # External imports
-import mock
 import tornado
 from _util_server import (
     http_get,
@@ -34,13 +34,11 @@ from _util_server import (
     websocket_open,
     ws_url,
 )
-from flaky import flaky
 from tornado.httpclient import HTTPError
 from tornado.httpserver import HTTPServer
 from tornado.ioloop import IOLoop
 
 # Bokeh imports
-from bokeh._testing.plugins.managed_server_loop import MSL
 from bokeh.application import Application
 from bokeh.application.handlers import Handler
 from bokeh.client import pull_session
@@ -55,6 +53,7 @@ from bokeh.util.token import (
     get_session_id,
     get_token_payload,
 )
+from tests.support.plugins.managed_server_loop import MSL
 
 # Module under test
 import bokeh.server.server as server # isort:skip
@@ -366,7 +365,6 @@ async def test__exclude_cookies(ManagedServerLoop: MSL) -> None:
 
 @pytest.mark.skipif(sys.platform == "win32",
                     reason="Lifecycle hooks order different on Windows (TODO open issue)")
-@flaky(max_runs=10)
 def test__lifecycle_hooks(ManagedServerLoop: MSL) -> None:
     application = Application()
     handler = HookTestHandler()
@@ -649,7 +647,6 @@ async def test__autocreate_signed_session_doc(ManagedServerLoop: MSL) -> None:
 
         assert check_token_signature(token, signed=True, secret_key='foo')
 
-@flaky(max_runs=10)
 async def test__accept_session_websocket(ManagedServerLoop: MSL) -> None:
     application = Application()
     with ManagedServerLoop(application, session_token_expiration=10) as server:

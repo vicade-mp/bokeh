@@ -3,6 +3,8 @@ import {entries} from "./util/object"
 import {BBox} from "./util/bbox"
 import {Size, Box, Extents} from "./types"
 
+export {CSSStyles, CSSStylesNative, CSSOurStyles} from "./css"
+
 export type HTMLAttrs = {[name: string]: unknown}
 export type HTMLItem = string | Node | NodeList | HTMLCollection | null | undefined
 export type HTMLChild = HTMLItem | HTMLItem[]
@@ -92,6 +94,8 @@ export const
   pre      = _createElement("pre"),
   button   = _createElement("button"),
   label    = _createElement("label"),
+  legend   = _createElement("legend"),
+  fieldset = _createElement("fieldset"),
   input    = _createElement("input"),
   select   = _createElement("select"),
   option   = _createElement("option"),
@@ -180,8 +184,28 @@ export function empty(node: Node, attrs: boolean = false): void {
   }
 }
 
-export function display(element: HTMLElement): void {
-  element.style.display = ""
+export function contains(element: Element, child: Node) {
+  /**
+   * Like Node.contains(), but traverses Shadow DOM boundaries.
+   */
+  let current = child
+
+  while (current.parentNode != null) {
+    const parent = current.parentNode
+    if (parent == element) {
+      return true
+    } else if (parent instanceof ShadowRoot) {
+      current = parent.host
+    } else {
+      current = parent
+    }
+  }
+
+  return false
+}
+
+export function display(element: HTMLElement, display: boolean = true): void {
+  element.style.display = display ? "" : "none"
 }
 
 export function undisplay(element: HTMLElement): void {
@@ -196,25 +220,21 @@ export function hide(element: HTMLElement): void {
   element.style.visibility = "hidden"
 }
 
-export function offset(element: Element) {
-  const rect = element.getBoundingClientRect()
-  return {
-    top:  rect.top  + window.pageYOffset - document.documentElement.clientTop,
-    left: rect.left + window.pageXOffset - document.documentElement.clientLeft,
-  }
-}
-
-export function matches(el: HTMLElement, selector: string): boolean {
-  const p: any = Element.prototype
-  const f = p.matches ?? p.webkitMatchesSelector ?? p.mozMatchesSelector ?? p.msMatchesSelector
-  return f.call(el, selector)
+export function offset_bbox(element: Element): BBox {
+  const {top, left, width, height} = element.getBoundingClientRect()
+  return new BBox({
+    left: left + scrollX - document.documentElement.clientLeft,
+    top:  top  + scrollY - document.documentElement.clientTop,
+    width,
+    height,
+  })
 }
 
 export function parent(el: HTMLElement, selector: string): HTMLElement | null {
   let node: HTMLElement | null = el
 
   while (node = node.parentElement) {
-    if (matches(node, selector))
+    if (node.matches(selector))
       return node
   }
 
@@ -313,21 +333,13 @@ export function position(el: HTMLElement, box: Box, margin?: Extents): void {
   }
 }
 
-export function children(el: HTMLElement): HTMLElement[] {
-  return Array.from(el.children) as HTMLElement[]
-}
-
 export class ClassList {
-  private readonly classList: DOMTokenList
-
-  constructor(readonly el: HTMLElement) {
-    this.classList = el.classList
-  }
+  constructor(private readonly class_list: DOMTokenList) {}
 
   get values(): string[] {
     const values = []
-    for (let i = 0; i < this.classList.length; i++) {
-      const item = this.classList.item(i)
+    for (let i = 0; i < this.class_list.length; i++) {
+      const item = this.class_list.item(i)
       if (item != null)
         values.push(item)
     }
@@ -335,24 +347,29 @@ export class ClassList {
   }
 
   has(cls: string): boolean {
-    return this.classList.contains(cls)
+    return this.class_list.contains(cls)
   }
 
   add(...classes: string[]): this {
     for (const cls of classes)
-      this.classList.add(cls)
+      this.class_list.add(cls)
     return this
   }
 
-  remove(...classes: string[]): this {
-    for (const cls of classes)
-      this.classList.remove(cls)
+  remove(...classes: string[] | string[][]): this {
+    for (const cls of classes) {
+      if (isArray(cls)) {
+        cls.forEach((cls) => this.class_list.remove(cls))
+      } else {
+        this.class_list.remove(cls)
+      }
+    }
     return this
   }
 
   clear(): this {
     for (const cls of this.values) {
-      this.classList.remove(cls)
+      this.class_list.remove(cls)
     }
     return this
   }
@@ -368,7 +385,7 @@ export class ClassList {
 }
 
 export function classes(el: HTMLElement): ClassList {
-  return new ClassList(el)
+  return new ClassList(el.classList)
 }
 
 export function toggle_attribute(el: HTMLElement, attr: string, state?: boolean): void {
@@ -382,59 +399,74 @@ export function toggle_attribute(el: HTMLElement, attr: string, state?: boolean)
     el.removeAttribute(attr)
 }
 
-export enum Keys {
-  Backspace = 8,
-  Tab       = 9,
-  Enter     = 13,
-  Esc       = 27,
-  PageUp    = 33,
-  PageDown  = 34,
-  Left      = 37,
-  Up        = 38,
-  Right     = 39,
-  Down      = 40,
-  Delete    = 46,
+type WhitespaceKeys = "Tab" | "Enter" | " "
+type UIKeys = "Escape"
+type NavigationKeys = "Home" | "End" | "PageUp" | "PageDown" | "ArrowLeft" | "ArrowRight" | "ArrowUp" | "ArrowDown"
+type EditingKeys = "Backspace" | "Delete"
+
+export type Keys = WhitespaceKeys | UIKeys | NavigationKeys | EditingKeys
+
+export enum MouseButton {
+  None = 0b0,
+  Primary = 0b1,
+  Secondary = 0b10,
+  Auxiliary = 0b100,
+  Left = Primary,
+  Right = Secondary,
+  Middle = Auxiliary,
 }
 
-export function undisplayed<T>(el: HTMLElement, fn: () => T): T {
-  const {display} = el.style
-  el.style.display = "none"
-  try {
-    return fn()
-  } finally {
-    el.style.display = display
+import {CSSOurStyles} from "./css"
+
+export abstract class StyleSheet {
+  protected readonly el: HTMLStyleElement | HTMLLinkElement
+
+  install(el: HTMLElement | ShadowRoot): void {
+    el.append(this.el)
   }
 }
 
-export function unsized<T>(el: HTMLElement, fn: () => T): T {
-  return sized(el, {}, fn)
-}
-
-export function sized<T>(el: HTMLElement, size: Partial<Size>, fn: () => T): T {
-  const {width, height, position, display} = el.style
-  el.style.position = "absolute"
-  el.style.display = ""
-  el.style.width = size.width != null && size.width != Infinity ? `${size.width}px` : "auto"
-  el.style.height = size.height != null && size.height != Infinity ? `${size.height}px` : "auto"
-  try {
-    return fn()
-  } finally {
-    el.style.position = position
-    el.style.display = display
-    el.style.width = width
-    el.style.height = height
-  }
-}
-
-export class StyleSheet {
-  readonly el: HTMLStyleElement
+export class InlineStyleSheet extends StyleSheet {
+  protected override readonly el: HTMLStyleElement
 
   constructor(css?: string) {
+    super()
     this.el = style({type: "text/css"}, css)
   }
 
-  replace(css: string): void {
-    this.el.textContent = css
+  clear(): void {
+    this.replace("")
+  }
+
+  private *_to_rules(styles: CSSOurStyles) {
+    // TODO: prefixing
+    for (const [attr, value] of entries(styles)) {
+      if (value != null) {
+        const name = attr.replace(/_/g, "-")
+        yield `${name}: ${value};`
+      }
+    }
+  }
+
+  private _to_css(css: string, styles: CSSOurStyles | undefined): string {
+    if (styles == null)
+      return css
+    else
+      return `${css}{${[...this._to_rules(styles)].join("")}}`
+  }
+
+  replace(css: string, styles?: CSSOurStyles): void {
+    this.el.textContent = this._to_css(css, styles)
+  }
+
+  prepend(css: string, styles?: CSSOurStyles): void {
+    const text = this.el.textContent ?? ""
+    this.el.textContent = `${this._to_css(css, styles)}\n${text}`
+  }
+
+  append(css: string, styles?: CSSOurStyles): void {
+    const text = this.el.textContent ?? ""
+    this.el.textContent = `${text}\n${this._to_css(css, styles)}`
   }
 
   remove(): void {
@@ -442,18 +474,19 @@ export class StyleSheet {
   }
 }
 
-export class GlobalStyleSheet extends StyleSheet {
-  initialize(): void {
+export class GlobalInlineStyleSheet extends InlineStyleSheet {
+  override install(): void {
     if (!this.el.isConnected) {
       document.head.appendChild(this.el)
     }
   }
 }
 
-export class ImportedStyleSheet {
-  readonly el: HTMLLinkElement
+export class ImportedStyleSheet extends StyleSheet {
+  protected override readonly el: HTMLLinkElement
 
   constructor(url: string) {
+    super()
     this.el = link({rel: "stylesheet", href: url})
   }
 
@@ -466,15 +499,15 @@ export class ImportedStyleSheet {
   }
 }
 
-export class GlobalImportedStyleSheet extends StyleSheet {
-  initialize(): void {
+export class GlobalImportedStyleSheet extends ImportedStyleSheet {
+  override install(): void {
     if (!this.el.isConnected) {
       document.head.appendChild(this.el)
     }
   }
 }
 
-export type StyleSheetLike = StyleSheet | ImportedStyleSheet | string
+export type StyleSheetLike = StyleSheet | string
 
 export async function dom_ready(): Promise<void> {
   if (document.readyState == "loading") {
@@ -483,3 +516,9 @@ export async function dom_ready(): Promise<void> {
     })
   }
 }
+
+export function px(value: number): string {
+  return `${value}px`
+}
+
+export const supports_adopted_stylesheets = "adoptedStyleSheets" in ShadowRoot.prototype

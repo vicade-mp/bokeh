@@ -31,6 +31,7 @@ from os.path import (
 )
 from types import FrameType
 from typing import (
+    TYPE_CHECKING,
     Iterator,
     Literal,
     NoReturn,
@@ -41,11 +42,8 @@ from typing import (
 import _pytest.config
 import _pytest.mark
 import _pytest.python
-from typing_extensions import TypeAlias
 
 # Bokeh imports
-from bokeh._testing.util.examples import Example, Flags, collect_examples
-from bokeh._testing.util.screenshot import JSResult, run_in_chrome
 from bokeh.client import push_session
 from bokeh.command.util import build_single_handler_application
 from bokeh.core.types import ID
@@ -57,13 +55,18 @@ from bokeh.util.terminal import (
     warn,
     white,
 )
+from tests.support.util.examples import Example, Flags, collect_examples
+from tests.support.util.screenshot import JSResult, run_in_chrome
+
+if TYPE_CHECKING:
+    from typing_extensions import TypeAlias
 
 #-----------------------------------------------------------------------------
 # Setup
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.bokeh_server",
+    "tests.support.plugins.bokeh_server",
 )
 
 BASE_DIR = abspath(dirname(dirname(__file__)))
@@ -265,7 +268,7 @@ with open(filename, 'rb') as example:
     exec(compile(example.read(), filename, 'exec'))
 """
 
-    cmd = ["python", "-c", code]
+    cmd = [sys.executable, "-c", code]
     cwd = dirname(example.path)
 
     env = os.environ.copy()

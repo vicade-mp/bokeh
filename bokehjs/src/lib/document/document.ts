@@ -7,13 +7,13 @@ import {Property} from "core/properties"
 import {ModelResolver} from "core/resolvers"
 import {Serializer, ModelRep} from "core/serialization"
 import {Deserializer} from "core/serialization/deserializer"
+import {pyify_version} from "core/util/version"
 import {Ref} from "core/util/refs"
 import {ID, Data} from "core/types"
 import {Signal0} from "core/signaling"
 import {equals, Equatable, Comparator} from "core/util/eq"
 import {copy, includes} from "core/util/array"
 import * as sets from "core/util/set"
-import {LayoutDOM} from "models/layouts/layout_dom"
 import {Model} from "model"
 import {ModelDef, decode_def} from "./defs"
 import {
@@ -103,12 +103,9 @@ export class Document implements Equatable {
     return this == that
   }
 
-  get layoutables(): LayoutDOM[] {
-    return this._roots.filter((root): root is LayoutDOM => root instanceof LayoutDOM)
-  }
-
   get is_idle(): boolean {
-    for (const root of this.layoutables) {
+    // TODO: models without views, e.g. data models
+    for (const root of this._roots) {
       if (!this._idle_roots.has(root))
         return false
     }
@@ -378,15 +375,11 @@ export class Document implements Equatable {
   }
 
   private static _handle_version(json: DocJson): void {
-    function pyify(version: string) {
-      return version.replace(/-(dev|rc)\./, "$1")
-    }
-
     if (json.version != null) {
       const py_version = json.version
       const is_dev = py_version.indexOf("+") !== -1 || py_version.indexOf("-") !== -1
       const versions_string = `Library versions: JS (${js_version}) / Python (${py_version})`
-      if (!is_dev && pyify(js_version) != py_version) {
+      if (!is_dev && pyify_version(js_version) != py_version) {
         logger.warn("JS/Python version mismatch")
         logger.warn(versions_string)
       } else

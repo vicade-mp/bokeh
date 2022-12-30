@@ -2,11 +2,10 @@ import Hammer from "hammerjs"
 
 import {Signal} from "./signaling"
 import {logger} from "./logging"
-import {offset, Keys} from "./dom"
+import {offset_bbox, Keys} from "./dom"
 import * as events from "./bokeh_events"
 import {getDeltaY} from "./util/wheel"
 import {reversed, is_empty} from "./util/array"
-import {isString} from "./util/types"
 import {is_mobile} from "./util/platform"
 import {PlotView} from "../models/plots/plot"
 import {ToolView} from "../models/tools/tool"
@@ -32,10 +31,10 @@ export type PanEvent = {
   type: "pan" | "panstart" | "panend"
   sx: number
   sy: number
-  deltaX: number
-  deltaY: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  dx: number
+  dy: number
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type PinchEvent = {
@@ -43,8 +42,8 @@ export type PinchEvent = {
   sx: number
   sy: number
   scale: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type RotateEvent = {
@@ -52,8 +51,8 @@ export type RotateEvent = {
   sx: number
   sy: number
   rotation: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type GestureEvent = PanEvent | PinchEvent | RotateEvent
@@ -62,16 +61,16 @@ export type TapEvent = {
   type: "tap" | "doubletap" | "press" | "pressup" | "contextmenu"
   sx: number
   sy: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type MoveEvent = {
   type: "mousemove" | "mouseenter" | "mouseleave"
   sx: number
   sy: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type ScrollEvent = {
@@ -79,18 +78,18 @@ export type ScrollEvent = {
   sx: number
   sy: number
   delta: number
-  shiftKey: boolean
-  ctrlKey: boolean
+  shift_key: boolean
+  ctrl_key: boolean
 }
 
 export type UIEvent = GestureEvent | TapEvent | MoveEvent | ScrollEvent
 
 export type KeyEvent = {
   type: "keyup" | "keydown"
-  keyCode: Keys
+  key: Keys
 }
 
-export type EventType = "pan" | "pinch" | "rotate" | "move" | "tap" | "press" | "pressup" | "scroll"
+export type EventType = "pan" | "pinch" | "rotate" | "move" | "tap" | "doubletap" | "press" | "pressup" | "scroll"
 
 export type UISignal<E> = Signal<{id: string | null, e: E}, UIEventBus>
 
@@ -122,8 +121,9 @@ export class UIEventBus implements EventListenerObject {
   readonly keyup:        UISignal<KeyEvent>     = new Signal(this, "keyup")
 
   private readonly hammer = new Hammer(this.hit_area, {
+    cssProps: {} as any, // NOTE: don't assign style, use .bk-events instead
     touchAction: "auto",
-    inputClass: Hammer.TouchMouseInput, // https://github.com/bokeh/bokeh/issues/9187
+    inputClass: !is_mobile ? Hammer.PointerEventInput : Hammer.TouchMouseInput, // https://github.com/bokeh/bokeh/issues/9187
   })
 
   get hit_area(): HTMLElement {
@@ -191,15 +191,10 @@ export class UIEventBus implements EventListenerObject {
   }
 
   register_tool(tool_view: ToolView): void {
-    const et = tool_view.model.event_type
-
-    if (et != null) {
-      if (isString(et))
-        this._register_tool(tool_view, et)
-      else {
-        // Multi-tools should only registered shared events once
-        et.forEach((e, index) => this._register_tool(tool_view, e, index < 1))
-      }
+    let first = true
+    for (const et of tool_view.model.event_types) {
+      this._register_tool(tool_view, et, first)
+      first = false
     }
   }
 
@@ -242,11 +237,17 @@ export class UIEventBus implements EventListenerObject {
       }
       case "tap": {
         if (v._tap != null)          v.connect(this.tap,          conditionally(v._tap.bind(v)))
+        // XXX: ultimately this shouldn't fall-throught, but breaking here would fail elsewhere
+      }
+      case "doubletap": {
         if (v._doubletap != null)    v.connect(this.doubletap,    conditionally(v._doubletap.bind(v)))
         break
       }
       case "press": {
         if (v._press != null)        v.connect(this.press,        conditionally(v._press.bind(v)))
+        break
+      }
+      case "pressup": {
         if (v._pressup != null)      v.connect(this.pressup,      conditionally(v._pressup.bind(v)))
         break
       }
@@ -254,8 +255,6 @@ export class UIEventBus implements EventListenerObject {
         if (v._scroll != null)       v.connect(this.scroll,       conditionally(v._scroll.bind(v)))
         break
       }
-      default:
-        throw new Error(`unsupported event_type: ${et}`)
     }
 
     // Skip shared events if registering multi-tool
@@ -300,7 +299,7 @@ export class UIEventBus implements EventListenerObject {
   protected _hit_test_plot(sx: number, sy: number): PlotView | null {
     // TODO: z-index
     for (const plot_view of this.canvas_view.plot_views) {
-      if (plot_view.layout.bbox.relative()/*XXX*/.contains(sx, sy))
+      if (plot_view.bbox.relative()/*XXX*/.contains(sx, sy))
         return plot_view
     }
 
@@ -314,6 +313,9 @@ export class UIEventBus implements EventListenerObject {
   protected _curr_rotate: {plot_view: PlotView} | null = null
 
   _trigger<E extends UIEvent>(signal: UISignal<E>, e: E, srcEvent: Event): void {
+    if (!this.hit_area.isConnected)
+      return
+
     const {sx, sy} = e
     const plot_view = this._hit_test_plot(sx, sy)
     const curr_view = plot_view
@@ -382,12 +384,12 @@ export class UIEventBus implements EventListenerObject {
 
       if (prev_view != null && (e.type == "mouseleave" || prev_view != curr_view)) {
         const {sx, sy} = relativize_event(prev_view)
-        this.__trigger(prev_view, this.move_exit, {type: "mouseleave", sx, sy, shiftKey: false, ctrlKey: false}, srcEvent)
+        this.__trigger(prev_view, this.move_exit, {type: "mouseleave", sx, sy, shift_key: false, ctrl_key: false}, srcEvent)
       }
 
       if (curr_view != null && (e.type == "mouseenter" || prev_view != curr_view)) {
         const {sx, sy} = relativize_event(curr_view)
-        this.__trigger(curr_view, this.move_enter, {type: "mouseenter", sx, sy, shiftKey: false, ctrlKey: false}, srcEvent)
+        this.__trigger(curr_view, this.move_enter, {type: "mouseenter", sx, sy, shift_key: false, ctrl_key: false}, srcEvent)
       }
 
       if (curr_view != null && e.type == "mousemove") {
@@ -525,7 +527,7 @@ export class UIEventBus implements EventListenerObject {
         case "pressup":
           return new events.PressUp(sx, sy, x, y)
         case "pan":
-          return new events.Pan(sx, sy, x, y, e.deltaX, e.deltaY)
+          return new events.Pan(sx, sy, x, y, e.dx, e.dy)
         case "panstart":
           return new events.PanStart(sx, sy, x, y)
         case "panend":
@@ -553,7 +555,7 @@ export class UIEventBus implements EventListenerObject {
 
   /*private*/ _get_sxy(event: TouchEvent | MouseEvent | PointerEvent): ScreenCoord {
     const {pageX, pageY} = is_touch(event) ? (event.touches.length != 0 ? event.touches : event.changedTouches)[0] : event
-    const {left, top} = offset(this.hit_area)
+    const {left, top} = offset_bbox(this.hit_area)
     return {
       sx: pageX - left,
       sy: pageY - top,
@@ -564,10 +566,10 @@ export class UIEventBus implements EventListenerObject {
     return {
       type: e.type as PanEvent["type"],
       ...this._get_sxy(e.srcEvent),
-      deltaX: e.deltaX,
-      deltaY: e.deltaY,
-      shiftKey: e.srcEvent.shiftKey,
-      ctrlKey: e.srcEvent.ctrlKey,
+      dx: e.deltaX,
+      dy: e.deltaY,
+      shift_key: e.srcEvent.shiftKey,
+      ctrl_key: e.srcEvent.ctrlKey,
     }
   }
 
@@ -576,8 +578,8 @@ export class UIEventBus implements EventListenerObject {
       type: e.type as PinchEvent["type"],
       ...this._get_sxy(e.srcEvent),
       scale: e.scale,
-      shiftKey: e.srcEvent.shiftKey,
-      ctrlKey: e.srcEvent.ctrlKey,
+      shift_key: e.srcEvent.shiftKey,
+      ctrl_key: e.srcEvent.ctrlKey,
     }
   }
 
@@ -586,8 +588,8 @@ export class UIEventBus implements EventListenerObject {
       type: e.type as RotateEvent["type"],
       ...this._get_sxy(e.srcEvent),
       rotation: e.rotation,
-      shiftKey: e.srcEvent.shiftKey,
-      ctrlKey: e.srcEvent.ctrlKey,
+      shift_key: e.srcEvent.shiftKey,
+      ctrl_key: e.srcEvent.ctrlKey,
     }
   }
 
@@ -595,8 +597,8 @@ export class UIEventBus implements EventListenerObject {
     return {
       type: e.type as TapEvent["type"],
       ...this._get_sxy(e.srcEvent),
-      shiftKey: e.srcEvent.shiftKey,
-      ctrlKey: e.srcEvent.ctrlKey,
+      shift_key: e.srcEvent.shiftKey,
+      ctrl_key: e.srcEvent.ctrlKey,
     }
   }
 
@@ -604,8 +606,8 @@ export class UIEventBus implements EventListenerObject {
     return {
       type: e.type as MoveEvent["type"],
       ...this._get_sxy(e),
-      shiftKey: e.shiftKey,
-      ctrlKey: e.ctrlKey,
+      shift_key: e.shiftKey,
+      ctrl_key: e.ctrlKey,
     }
   }
 
@@ -614,15 +616,15 @@ export class UIEventBus implements EventListenerObject {
       type: e.type as ScrollEvent["type"],
       ...this._get_sxy(e),
       delta: getDeltaY(e),
-      shiftKey: e.shiftKey,
-      ctrlKey: e.ctrlKey,
+      shift_key: e.shiftKey,
+      ctrl_key: e.ctrlKey,
     }
   }
 
   /*private*/ _key_event(e: KeyboardEvent): KeyEvent {
     return {
       type: e.type as KeyEvent["type"],
-      keyCode: e.keyCode,
+      key: e.key as Keys,
     }
   }
 

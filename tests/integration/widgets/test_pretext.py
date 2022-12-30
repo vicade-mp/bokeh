@@ -21,16 +21,16 @@ import pytest ; pytest
 from html import escape
 
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage
-from bokeh._testing.util.selenium import find_element_for
 from bokeh.models import PreText
+from tests.support.plugins.project import BokehModelPage
+from tests.support.util.selenium import find_element_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 text = """
@@ -50,8 +50,8 @@ class Test_PreText:
 
         assert page.has_no_console_errors()
 
-    def test_set_style(self, bokeh_model_page: BokehModelPage) -> None:
-        para = PreText(text=text, style={'font-size': '26px'})
+    def test_set_styles(self, bokeh_model_page: BokehModelPage) -> None:
+        para = PreText(text=text, styles={'font-size': '26px'})
         page = bokeh_model_page(para)
 
         el = find_element_for(page.driver, para)

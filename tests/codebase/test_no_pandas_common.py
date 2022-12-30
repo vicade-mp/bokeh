@@ -22,7 +22,7 @@ from subprocess import run
 from sys import executable as python
 
 # Bokeh imports
-from bokeh._testing.util.project import ls_modules, verify_clean_imports
+from tests.support.util.project import ls_modules, verify_clean_imports
 
 #-----------------------------------------------------------------------------
 # Tests
@@ -32,7 +32,7 @@ from bokeh._testing.util.project import ls_modules, verify_clean_imports
 PANDAS_ALLOWED = (
     "bokeh.sampledata",
     "bokeh.sphinxext",
-    "bokeh._testing",
+    "tests.support",
 )
 
 MODULES = ls_modules(skip_prefixes=PANDAS_ALLOWED)
@@ -44,7 +44,7 @@ MODULES = ls_modules(skip_prefixes=PANDAS_ALLOWED)
 #     proc = run([python, "-c", verify_clean_imports('pandas', [module])])
 #     assert proc.returncode == 0, f"pandas imported in common module {module}"
 
-def test_no_pands_common_combined() -> None:
+def test_no_pandas_common_combined() -> None:
     ''' In order to keep the initial import times reasonable,  import
     of Bokeh should not result in any Pandas code being imported. This
     test ensures that importing basic modules does not bring in pandas.

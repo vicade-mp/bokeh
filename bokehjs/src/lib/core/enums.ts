@@ -29,6 +29,9 @@ export const ButtonType = Enum("default", "primary", "success", "warning", "dang
 export type CalendarPosition = "auto" | "above" | "below"
 export const CalendarPosition = Enum("auto", "above", "below")
 
+export type CoordinateUnits = "canvas" | "screen" | "data"
+export const CoordinateUnits = Enum("canvas", "screen", "data")
+
 export type ContextWhich = "start" | "center" | "end" | "all"
 export const ContextWhich = Enum("start", "center", "end", "all")
 
@@ -43,6 +46,9 @@ export const Direction = Enum("clock", "anticlock")
 
 export type Distribution = "uniform" | "normal"
 export const Distribution = Enum("uniform", "normal")
+
+export type FlowMode = typeof FlowMode["__type__"]
+export const FlowMode = Enum("block", "inline")
 
 export type FontStyle = "normal" | "italic" | "bold" | "bold italic"
 export const FontStyle = Enum("normal", "italic", "bold", "bold italic")
@@ -145,14 +151,17 @@ export const ResetPolicy = Enum("standard", "event_only")
 export type RoundingFunction = "round" | "nearest" | "floor" | "rounddown" | "ceil" | "roundup"
 export const RoundingFunction = Enum("round", "nearest", "floor", "rounddown", "ceil", "roundup")
 
+export type ScrollbarPolicy = typeof ScrollbarPolicy["__type__"]
+export const ScrollbarPolicy = Enum("auto", "visible", "hidden")
+
 export type SelectionMode = "replace" | "append" | "intersect" | "subtract"
 export const SelectionMode = Enum("replace", "append", "intersect", "subtract")
 
 export type Side = "above" | "below" | "left" | "right"
 export const Side = Enum("above", "below", "left", "right")
 
-export type SizingMode = "stretch_width" | "stretch_height" | "stretch_both" | "scale_width" | "scale_height" | "scale_both" | "fixed"
-export const SizingMode = Enum("stretch_width", "stretch_height", "stretch_both", "scale_width", "scale_height", "scale_both", "fixed")
+export type SizingMode = "stretch_width" | "stretch_height" | "stretch_both" | "scale_width" | "scale_height" | "scale_both" | "fixed" | "inherit"
+export const SizingMode = Enum("stretch_width", "stretch_height", "stretch_both", "scale_width", "scale_height", "scale_both", "fixed", "inherit")
 
 export type Sort = "ascending" | "descending"
 export const Sort = Enum("ascending", "descending")

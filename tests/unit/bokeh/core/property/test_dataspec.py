@@ -23,9 +23,9 @@ from copy import copy
 
 # External imports
 import numpy as np
+import pandas as pd
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
 from bokeh.core.has_props import HasProps, Local
 from bokeh.core.property.vectorization import (
     Field,
@@ -33,6 +33,7 @@ from bokeh.core.property.vectorization import (
     field,
     value,
 )
+from tests.support.util.api import verify_all
 
 # Module under test
 import bokeh.core.property.dataspec as bcpd # isort:skip
@@ -440,7 +441,7 @@ class Test_NumberSpec:
             f.ndt = np.timedelta64(3000, "ms")
             assert f.ndt == np.timedelta64(3000, "ms")
 
-    def tests_accepts_timedelta_with_pandas(self, pd):
+    def tests_accepts_timedelta_with_pandas(self):
         class Foo(HasProps):
             dt = bcpd.NumberSpec("dt", accept_datetime=True)
             ndt = bcpd.NumberSpec("ndt", accept_datetime=False)

@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# Standard library imports
+from pathlib import Path
+
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.haar_cascade as bsh # isort:skip
@@ -37,9 +40,9 @@ ALL = (
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.haar_cascade", ALL))
 
 @pytest.mark.sampledata
-def test_data(pd) -> None:
+def test_data() -> None:
     import bokeh.sampledata.haar_cascade as bsh
-    assert isinstance(bsh.frontalface_default_path, str)
+    assert isinstance(bsh.frontalface_default_path, Path)
 
     # don't check detail for external data
 

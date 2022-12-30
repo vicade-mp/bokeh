@@ -1,14 +1,19 @@
 import {HasProps} from "./core/has_props"
 import {Class} from "./core/class"
-import {ModelEvent} from "./core/bokeh_events"
+import {ModelEvent, ModelEventType, BokehEventMap} from "./core/bokeh_events"
 import * as p from "./core/properties"
-import {isString, isPlainObject} from "./core/util/types"
-import {obj} from "./core/util/object"
+import {isString, isPlainObject, isFunction} from "./core/util/types"
+import {dict} from "./core/util/object"
 import {equals, Comparator} from "core/util/eq"
 import {logger} from "./core/logging"
 import {CallbackLike0} from "./models/callbacks/callback"
 
 export type ModelSelector<T> = Class<T> | string | {type: string}
+
+export type ChangeCallback = CallbackLike0<Model>
+export type EventCallback<T extends ModelEvent = ModelEvent> = CallbackLike0<T>
+
+export type EventCallbackLike<T extends ModelEvent = ModelEvent> = EventCallback<T> | EventCallback<T>["execute"]
 
 export namespace Model {
   export type Attrs = p.AttrsOf<Props>
@@ -16,9 +21,9 @@ export namespace Model {
   export type Props = HasProps.Props & {
     tags: p.Property<unknown[]>
     name: p.Property<string | null>
-    js_property_callbacks: p.Property<{[key: string]: CallbackLike0<Model>[]}>
-    js_event_callbacks: p.Property<{[key: string]: CallbackLike0<ModelEvent>[]}>
-    subscribed_events: p.Property<string[]>
+    js_property_callbacks: p.Property<{[key: string]: ChangeCallback[]}>
+    js_event_callbacks: p.Property<{[key: string]: EventCallback[]}>
+    subscribed_events: p.Property<Set<string>>
     syncable: p.Property<boolean>
   }
 }
@@ -43,12 +48,12 @@ export class Model extends HasProps {
   }
 
   static {
-    this.define<Model.Props>(({Any, Unknown, Boolean, String, Array, Dict, Nullable}) => ({
+    this.define<Model.Props>(({Any, Unknown, Boolean, String, Array, Set, Dict, Nullable}) => ({
       tags:                  [ Array(Unknown), [] ],
       name:                  [ Nullable(String), null ],
       js_property_callbacks: [ Dict(Array(Any /*TODO*/)), {} ],
       js_event_callbacks:    [ Dict(Array(Any /*TODO*/)), {} ],
-      subscribed_events:     [ Array(String), [] ],
+      subscribed_events:     [ Set(String), new globalThis.Set() ],
       syncable:              [ Boolean, true ],
     }))
   }
@@ -68,10 +73,10 @@ export class Model extends HasProps {
   }
 
   /*protected*/ _process_event(event: ModelEvent): void {
-    for (const callback of obj(this.js_event_callbacks).get(event.event_name) ?? [])
+    for (const callback of dict(this.js_event_callbacks).get(event.event_name) ?? [])
       callback.execute(event)
 
-    if (this.document != null && this.subscribed_events.some((model) => model == event.event_name))
+    if (this.document != null && this.subscribed_events.has(event.event_name))
       this.document.event_manager.send_event(event)
   }
 
@@ -103,7 +108,7 @@ export class Model extends HasProps {
     }
     this._js_callbacks.clear()
 
-    for (const [event, callbacks] of obj(this.js_property_callbacks)) {
+    for (const [event, callbacks] of dict(this.js_property_callbacks)) {
       const wrappers = callbacks.map((cb) => () => cb.execute(this))
       this._js_callbacks.set(event, wrappers)
       const signal = signal_for(event)
@@ -113,7 +118,7 @@ export class Model extends HasProps {
   }
 
   protected override _doc_attached(): void {
-    if (!obj(this.js_event_callbacks).is_empty || this.subscribed_events.length != 0)
+    if (!dict(this.js_event_callbacks).is_empty || this.subscribed_events.size != 0)
       this._update_event_callbacks()
   }
 
@@ -129,7 +134,7 @@ export class Model extends HasProps {
     else if (selector.prototype instanceof HasProps)
       return [...this.references()].filter((ref): ref is T => ref instanceof selector)
     else
-      throw new Error("invalid selector")
+      throw new Error(`invalid selector ${selector}`)
   }
 
   select_one<T extends HasProps>(selector: ModelSelector<T>): T | null {
@@ -140,7 +145,18 @@ export class Model extends HasProps {
       case 1:
         return result[0]
       default:
-        throw new Error("found more than one object matching given selector")
+        throw new Error(`found more than one object matching given selector ${selector}`)
     }
+  }
+
+  on_event<T extends ModelEventType>(event: T, callback: EventCallbackLike<BokehEventMap[T]>): void
+  on_event<T extends ModelEvent>(event: Class<T>, callback: EventCallbackLike<T>): void
+
+  on_event(event: ModelEventType | Class<ModelEvent>, callback: EventCallbackLike): void {
+    const name = isString(event) ? event : event.prototype.event_name
+    this.js_event_callbacks[name] = [
+      ...dict(this.js_event_callbacks).get(name) ?? [],
+      isFunction(callback) ? {execute: callback} : callback,
+    ]
   }
 }

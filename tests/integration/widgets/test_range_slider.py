@@ -20,22 +20,7 @@ import pytest ; pytest
 # Standard library imports
 from time import sleep
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import (
-    RECORD,
-    Keys,
-    drag_range_slider,
-    find_element_for,
-    find_elements_for,
-    get_slider_bar_color,
-    get_slider_title_text,
-    get_slider_title_value,
-    select_element_and_press_key,
-)
 from bokeh.layouts import column
 from bokeh.models import (
     Circle,
@@ -46,13 +31,25 @@ from bokeh.models import (
     RangeSlider,
 )
 from bokeh.models.formatters import BasicTickFormatter
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import (
+    RECORD,
+    Keys,
+    drag_range_slider,
+    find_element_for,
+    find_elements_for,
+    get_slider_bar_color,
+    get_slider_title_text,
+    get_slider_title_value,
+    select_element_and_press_key,
+)
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 
@@ -118,7 +115,6 @@ class Test_RangeSlider:
 
         assert page.has_no_console_errors()
 
-    @pytest.mark.skip
     def test_keypress_event(self, bokeh_model_page: BokehModelPage) -> None:
         slider = RangeSlider(start=0, end=10, value=(1, 5), title="bar", width=300)
         page = bokeh_model_page(slider)
@@ -173,7 +169,6 @@ class Test_RangeSlider:
         assert page.has_no_console_errors()
 
 
-    @flaky(max_runs=10)
     def test_server_on_change_round_trip(self, bokeh_server_page: BokehServerPage) -> None:
         slider = RangeSlider(start=0, end=10, value=(1, 9), title="bar", width=300)
 
@@ -225,7 +220,6 @@ class Test_RangeSlider:
         # XXX (bev) disabled until https://github.com/bokeh/bokeh/issues/7970 is resolved
         # assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_server_bar_color_updates(self, bokeh_server_page: BokehServerPage) -> None:
         slider = RangeSlider(start=0, end=10, value=(1, 5), title="bar", width=300)
 

@@ -1,7 +1,8 @@
-import {expect} from "assertions"
 import * as sinon from "sinon"
 
-import {Keys} from "@bokehjs/core/dom"
+import {expect} from "assertions"
+import {display} from "../../../_util"
+
 import {build_view} from "@bokehjs/core/build_views"
 
 import {Rect, RectView} from "@bokehjs/models/glyphs/rect"
@@ -28,7 +29,7 @@ async function make_testcase(): Promise<BoxEditTestCase> {
     y_range: new Range1d({start: -1, end: 1}),
   })
 
-  const plot_view = (await build_view(plot)).build()
+  const {view: plot_view} = await display(plot)
 
   const data = {
     x: [0, 0.5, 1],
@@ -117,7 +118,7 @@ describe("BoxEditTool", () => {
       testcase.draw_tool_view._tap(tap_event)
 
       const moveenter_event = make_move_event(300, 300)
-      const keyup_event = make_key_event(Keys.Backspace)
+      const keyup_event = make_key_event("Backspace")
       testcase.draw_tool_view._move_enter(moveenter_event)
       testcase.draw_tool_view._keyup(keyup_event)
 
@@ -136,7 +137,7 @@ describe("BoxEditTool", () => {
       testcase.draw_tool_view._tap(tap_event)
 
       const moveenter_event = make_move_event(300, 300)
-      const keyup_event = make_key_event(Keys.Esc)
+      const keyup_event = make_key_event("Escape")
       testcase.draw_tool_view._move_enter(moveenter_event)
       testcase.draw_tool_view._keyup(keyup_event)
 

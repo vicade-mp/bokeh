@@ -8,15 +8,15 @@ import * as inputs from "styles/widgets/inputs.css"
 export class TextAreaInputView extends TextLikeInputView {
   override model: TextAreaInput
 
-  protected override input_el: HTMLTextAreaElement
+  override input_el: HTMLTextAreaElement
 
   override connect_signals(): void {
     super.connect_signals()
     this.connect(this.model.properties.rows.change, () => this.input_el.rows = this.model.rows)
     this.connect(this.model.properties.cols.change, () => this.input_el.cols = this.model.cols)
   }
-  protected _render_input(): void {
-    this.input_el = textarea({class: inputs.input})
+  protected _render_input(): HTMLElement {
+    return this.input_el = textarea({class: inputs.input})
   }
 
   override render(): void {

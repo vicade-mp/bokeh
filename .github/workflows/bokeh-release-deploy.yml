@@ -1,23 +1,24 @@
 name: Release - Deploy
+run-name: Release - Deploy ${{ github.event.inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to deploy a release for (e.g. 3.0.0, 2.4.0dev8)"
+        description: "Version to deploy a release for (e.g. 3.0.0, 2.4.0.dev8)"
         required: true
 
-env:
-  CONDA_BASE_REQS: "conda=4.8.1 conda-build=3.18.10 conda-verify=3.4.2 ripgrep=0.10.0 jinja2"
-  CONDA_ENV_REQS: "python=3.8 jinja2 yaml pyyaml"
+defaults:
+  run:
+    shell: bash -l {0}
 
 jobs:
 
   deploy:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Verify Maintainer Authorization
+      - name: Check Maintainer
         env:
           BOKEH_VERSION: ${{ github.event.inputs.version }}
           RELEASE_MAINTAINERS: ${{ secrets.RELEASE_MAINTAINERS }}
@@ -34,14 +35,14 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v2
+
       - uses: conda-incubator/setup-miniconda@v2
         with:
           miniconda-version: 'latest'
           activate-environment: bk-release-deploy
-          environment-file: ci/environment-release-deploy.yml
+          environment-file: conda/environment-release-deploy.yml
 
       - name: Deploy Release Tarball
-        shell: bash -l {0}
         env:
           ANACONDA_TOKEN: ${{ secrets.ANACONDA_TOKEN }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
@@ -50,5 +51,4 @@ jobs:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
           PYPI_TOKEN: ${{ secrets.PYPI_TOKEN }}
           SLACK_TOKEN: ${{ secrets.SLACK_BUILD_RELEASE_TOKEN }}
-        run: |
-           python -m release deploy $BOKEH_VERSION
+        run: python -m release deploy $BOKEH_VERSION

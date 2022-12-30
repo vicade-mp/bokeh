@@ -21,19 +21,7 @@ import pytest ; pytest
 from datetime import date, datetime, timedelta
 from time import sleep
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import (
-    RECORD,
-    drag_range_slider,
-    find_elements_for,
-    get_slider_bar_color,
-    get_slider_title_text,
-    get_slider_title_value,
-)
 from bokeh.layouts import column
 from bokeh.models import (
     Circle,
@@ -43,13 +31,22 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import (
+    RECORD,
+    drag_range_slider,
+    find_elements_for,
+    get_slider_bar_color,
+    get_slider_title_text,
+    get_slider_title_value,
+)
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 start = date(2017, 8, 3)
@@ -112,8 +109,6 @@ class Test_DateRangeSlider:
 
         assert page.has_no_console_errors()
 
-    # TODO (bev) test works locally but not in CI
-    @pytest.mark.skip
     def test_js_on_change_executes(self, bokeh_model_page: BokehModelPage) -> None:
         slider = DateRangeSlider(start=start, end=end, value=value, width=300)
         slider.js_on_change('value', CustomJS(code=RECORD("value", "cb_obj.value")))
@@ -130,8 +125,6 @@ class Test_DateRangeSlider:
 
         assert page.has_no_console_errors()
 
-
-    @flaky(max_runs=10)
     def test_server_on_change_round_trip(self, bokeh_server_page: BokehServerPage) -> None:
         slider = DateRangeSlider(start=start, end=end, value=value, width=300)
 
@@ -176,7 +169,6 @@ class Test_DateRangeSlider:
 #         # XXX (bev) disabled until https://github.com/bokeh/bokeh/issues/7970 is resolved
 #         # assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_server_bar_color_updates(self, bokeh_server_page: BokehServerPage) -> None:
         slider = DateRangeSlider(start=start, end=end, value=value, width=300, bar_color="red")
 

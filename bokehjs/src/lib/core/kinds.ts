@@ -1,7 +1,7 @@
 import * as types from "./types"
 import * as tp from "./util/types"
 import {is_Color} from "./util/color"
-import {size} from "./util/object"
+import {keys, entries} from "./util/object"
 
 type ESMap<K, V> = globalThis.Map<K, V>
 const ESMap = globalThis.Map
@@ -109,9 +109,11 @@ export namespace Kinds {
     }
   }
 
-  export type TupleKind<T extends unknown[]> = {[K in keyof T]: T[K] extends T[number] ? Kind<T[K]> : never}
+  // See https://github.com/microsoft/TypeScript/issues/49556.
+  export type TupleKind<T extends unknown[]> = {[K in keyof T]: Kind<T[K]>}
+  export type ObjectKind<T extends {[key: string]: unknown}> = {[K in keyof T]: Kind<T[K]>}
 
-  export class Or<T extends unknown[]> extends Kind<T[number]> {
+  export class Or<T extends [unknown, ...unknown[]]> extends Kind<T[number]> {
     constructor(readonly types: TupleKind<T>) {
       super()
       this.types = types
@@ -151,9 +153,9 @@ export namespace Kinds {
     }
   }
 
-  export class Struct<T extends object> extends Kind<T> {
+  export class Struct<T extends {[key: string]: unknown}> extends Kind<T> {
 
-    constructor(readonly struct_type: {[key in keyof T]: Kind<T[key]>}) {
+    constructor(readonly struct_type: ObjectKind<T>) {
       super()
     }
 
@@ -162,14 +164,14 @@ export namespace Kinds {
         return false
 
       const {struct_type} = this
-      if (size(struct_type) != size(value))
-        return false
+
+      for (const key of keys(value)) {
+        if (!hasOwnProperty.call(struct_type, key))
+          return false
+      }
 
       for (const key in struct_type) {
         if (hasOwnProperty.call(struct_type, key)) {
-          if (!hasOwnProperty.call(value, key))
-            return false
-
           const item_type = struct_type[key]
           const item = value[key]
 
@@ -182,7 +184,8 @@ export namespace Kinds {
     }
 
     override toString(): string {
-      return "Struct"
+      const items = entries(this.struct_type).map(([key, kind]) => `${key}: ${kind}`).join(", ")
+      return `Struct({${items}})`
     }
   }
 
@@ -196,7 +199,7 @@ export namespace Kinds {
     }
 
     override toString(): string {
-      return `Array(${this.item_type.toString()})`
+      return `Arrayable(${this.item_type.toString()})`
     }
   }
 
@@ -425,6 +428,20 @@ export namespace Kinds {
     }
   }
 
+  export class Positive<BaseType extends number> extends Kind<BaseType> {
+    constructor(readonly base_type: Kind<BaseType>) {
+      super()
+    }
+
+    valid(value: unknown): value is BaseType {
+      return this.base_type.valid(value) && value > 0
+    }
+
+    override toString(): string {
+      return `Positive(${this.base_type.toString()})`
+    }
+  }
+
   export class DOMNode extends Kind<Node> {
     valid(value: unknown): value is Node {
       return value instanceof Node
@@ -447,9 +464,9 @@ export const Regex = (regex: RegExp) => new Kinds.Regex(regex)
 export const Null = new Kinds.Null()
 export const Nullable = <BaseType>(base_type: Kind<BaseType>) => new Kinds.Nullable(base_type)
 export const Opt = <BaseType>(base_type: Kind<BaseType>) => new Kinds.Opt(base_type)
-export const Or = <T extends unknown[]>(...types: Kinds.TupleKind<T>) => new Kinds.Or(types)
+export const Or = <T extends [unknown, ...unknown[]]>(...types: Kinds.TupleKind<T>) => new Kinds.Or(types)
 export const Tuple = <T extends [unknown, ...unknown[]]>(...types: Kinds.TupleKind<T>) => new Kinds.Tuple(types)
-export const Struct = <T extends object>(struct_type: {[key in keyof T]: Kind<T[key]>}) => new Kinds.Struct(struct_type)
+export const Struct = <T extends {[key: string]: unknown}>(struct_type: Kinds.ObjectKind<T>) => new Kinds.Struct(struct_type)
 export const Arrayable = <ItemType>(item_type: Kind<ItemType>) => new Kinds.Arrayable(item_type)
 export const Array = <ItemType>(item_type: Kind<ItemType>) => new Kinds.Array(item_type)
 export const Dict = <V>(item_type: Kind<V>) => new Kinds.Dict(item_type)
@@ -462,6 +479,7 @@ export const Function = <Args extends unknown[], Ret>() => new Kinds.Function<Ar
 export const DOMNode = new Kinds.DOMNode()
 
 export const NonNegative = <BaseType extends number>(base_type: Kind<BaseType>) => new Kinds.NonNegative(base_type)
+export const Positive = <BaseType extends number>(base_type: Kind<BaseType>) => new Kinds.Positive(base_type)
 
 export const Percent = new Kinds.Percent()
 export const Alpha = Percent

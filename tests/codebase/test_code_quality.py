@@ -35,7 +35,7 @@ from typing import IO
 
 def test_code_quality() -> None:
     ''' Applies a collection of general codebase style and quality rules to
-    every file inm the repository. Unless specifically excepted:
+    every file in the repository. Unless specifically excepted:
 
     * Files should not contain tabs
     * Files should not start with newlines
@@ -70,7 +70,7 @@ def tab_in_leading(s: str) -> bool:
         including the whitespace of docstring code samples.
     """
     n = len(s) - len(s.lstrip())
-    if not s[n:n + 3] in ['...', '>>>']:
+    if s[n:n + 3] not in ['...', '>>>']:
         check = s[:n]
     else:
         smore = s[n + 3:]
@@ -80,7 +80,7 @@ def tab_in_leading(s: str) -> bool:
 def use_tab_rule(fname: str) -> bool:
     return not (basename(fname) == 'Makefile' or splitext(fname)[1] == '.bat')
 
-exclude_paths = ("CHANGELOG",)
+exclude_paths = ("docs/CHANGELOG",)
 
 exclude_exts = (
     ".patch", ".png", ".jpg", ".pxm", ".ico", ".ics", ".gz", ".gif", ".enc",
@@ -130,7 +130,7 @@ def collect_errors() -> list[str]:
         if path.startswith(exclude_dirs):
             continue
 
-        with open(path, "r", encoding="utf-8") as file:
+        with open(path, encoding="utf-8", newline="") as file:
             test_this_file(path, file)
 
     return [ msg.format(path=fname, line_no=line_no) for (msg, fname, line_no) in errors ]

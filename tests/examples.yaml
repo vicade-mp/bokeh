@@ -1,28 +1,35 @@
-- path: "examples/models/file"
-  slow: ["choropleth.py"]
+- path: "examples/advanced/extensions/*"
+  skip: ["gears", "widget.py"]
+
+- path: "examples/basic/**"
+  skip: ["ajax_source.py", "server_sent_events_source.py"]
+
+- path: "examples/integration/**"
+
+- path: "examples/interaction/**"
+
+- path: "examples/models/*"
   no_js: ["maps_cities.py", "maps.py", "trail.py"]
 
-- path: "examples/custom"
-  slow: ["latex_extension_full"]
-  skip: ["gears", "latex_extension_base", "latex_extension_full"]
+- path: "examples/output/webgl/*"
 
-- path: "examples/webgl"
+- path: "examples/output/apis/*"
+  skip: ["autoload_static.py", "autoload_static_flask.py", "components.py", "components_themed.py", "json_item.py", "json_item_themed.py", "server_document", "server_session"]
 
-- path: "examples/plotting/file"
-  slow: ["choropleth.py"]
-  no_js: ["gmap.py"]
-  skip: ["dynamic_map.py"]
+- path: "examples/plotting/*"
 
-- path: "examples/howto/layouts"
-
-- path: "examples/embed"
-  skip: ["arguments", "autoload_static.py", "custom_server", "json_item.py", "json_item_themed.py", "server_session", "simple"]
-
-- path: "examples/app"
+- path: "examples/server/app/*"
   type: server
-  skip: ["faces", "simple_hdf5", "spectrogram", "stocks"]
+  skip: [
+    "faces",
+    "simple_hdf5",
+    "spectrogram",
+    "stocks",      # Bokeh.index not avaiable, can't compute bbox
+    "surface3d",   # Bokeh.index not avaiable, can't compute bbox
+  ]
 
-- path: "examples/integration/*"
+- path: "examples/styling/**"
 
-- path: "sphinx/source/docs/user_guide/examples"
-  no_js: ["geo_gmap.py"]
+- path: "examples/topics/**"
+  slow: ["geo/choropleth.py"]
+  no_js: ["geo/gmap.py"]

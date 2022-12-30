@@ -27,6 +27,7 @@ from bokeh.core.properties import (
     String,
 )
 from bokeh.core.property.wrappers import PropertyValueDict, PropertyValueList
+from bokeh.core.types import ID
 from bokeh.model import Model
 
 # Module under test
@@ -104,12 +105,6 @@ def large_plot(n: int) -> tuple[Model, set[Model]]:
 
 
 class TestModelCls:
-    def setup_method(self):
-        self.old_map = dict(Model.model_class_reverse_map)
-
-    def teardown_method(self):
-        Model.model_class_reverse_map = self.old_map
-
     def mkclass(self):
         class Test_Class(Model):
             foo = 1
@@ -123,7 +118,6 @@ class TestModelCls:
 
     def test_get_class(self) -> None:
         from bokeh.model import get_class
-        self.mkclass()
         tclass = get_class('test_objects.TestModelCls.mkclass.Test_Class')
         assert hasattr(tclass, 'foo')
         with pytest.raises(KeyError):
@@ -168,13 +162,14 @@ class TestModel:
         self.maxDiff = None
 
     def test_init(self) -> None:
-        testObject = SomeModel(id='test_id')
-        assert testObject.id == 'test_id'
+        obj = SomeModel.__new__(SomeModel, id=ID("test_id"))
+        Model.__init__(obj)
+        assert obj.id == "test_id"
 
         testObject2 = SomeModel()
         assert testObject2.id is not None
 
-        assert set(testObject.properties()) == {
+        assert set(obj.properties()) == {
             "name",
             "tags",
             "js_property_callbacks",
@@ -183,16 +178,16 @@ class TestModel:
             "syncable",
             "some",
         }
-        assert testObject.properties_with_values(include_defaults=True) == dict(
+        assert obj.properties_with_values(include_defaults=True) == dict(
             name=None,
             tags=[],
             js_property_callbacks={},
             js_event_callbacks={},
-            subscribed_events=[],
+            subscribed_events=set(),
             syncable=True,
             some=0,
         )
-        assert testObject.properties_with_values(include_defaults=False) == {}
+        assert obj.properties_with_values(include_defaults=False) == {}
 
     def test_references_by_ref_by_value(self) -> None:
         from bokeh.core.has_props import HasProps
@@ -302,7 +297,8 @@ class TestModel:
             value = Int(default=next_value)
         obj1 = HasFuncDefaultInt()
         obj2 = HasFuncDefaultInt()
-        assert obj1.value + 1 == obj2.value
+        assert counter == 2
+        assert obj2.value == obj1.value + 1
 
         # 'value' is a default, but it gets included as a
         # non-default because it's unstable.
@@ -353,8 +349,7 @@ class TestListMutation(TestContainerMutation):
         assert 'foo' in obj.properties_with_values(include_defaults=True)
         # simply reading the property creates a new wrapper, so be
         # sure that doesn't count as replacing the default
-        foo = obj.foo
-        assert foo == foo # this is to calm down flake's unused var warning
+        foo = obj.foo # noqa: F841
         assert 'foo' not in obj.properties_with_values(include_defaults=False)
         assert 'foo' in obj.properties_with_values(include_defaults=True)
         # but changing the list should count as replacing the default
@@ -492,8 +487,7 @@ class TestDictMutation(TestContainerMutation):
         assert 'foo' in obj.properties_with_values(include_defaults=True)
         # simply reading the property creates a new wrapper, so be
         # sure that doesn't count as replacing the default
-        foo = obj.foo
-        assert foo == foo # this is to calm down flake's unused var warning
+        foo = obj.foo # noqa: F841
         assert 'foo' not in obj.properties_with_values(include_defaults=False)
         assert 'foo' in obj.properties_with_values(include_defaults=True)
         # but changing the dict should count as replacing the default

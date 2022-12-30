@@ -1,11 +1,10 @@
 import {expect} from "assertions"
+import {display} from "../../../_util"
 
-import {Document} from "@bokehjs/document"
 import {Tool} from "@bokehjs/models/tools/tool"
 import {WheelZoomTool, WheelZoomToolView} from "@bokehjs/models/tools/gestures/wheel_zoom_tool"
 import {Range1d} from "@bokehjs/models/ranges/range1d"
 import {Plot, PlotView} from "@bokehjs/models/plots/plot"
-import {build_view} from "@bokehjs/core/build_views"
 
 describe("WheelZoomTool", () => {
 
@@ -41,9 +40,8 @@ describe("WheelZoomTool", () => {
         y_range: new Range1d({start: -1, end: 1}),
       })
       plot.add_tools(tool)
-      const document = new Document()
-      document.add_root(plot)
-      return (await build_view(plot)).build()
+      const {view} = await display(plot)
+      return view
     }
 
     it("should zoom in both ranges", async () => {
@@ -53,7 +51,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -72,7 +70,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom out
-      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: -100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: -100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -91,7 +89,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -110,7 +108,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 0, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 0, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -129,7 +127,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 300, sy: 300, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -148,7 +146,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 0, sy: 300, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 0, sy: 300, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)
@@ -167,7 +165,7 @@ describe("WheelZoomTool", () => {
       const wheel_zoom_view = plot_view.tool_views.get(wheel_zoom)! as WheelZoomToolView
 
       // positive delta will zoom in
-      const zoom_event = {type: "wheel" as "wheel", sx: 100, sy: 100, delta: 100, ctrlKey: false, shiftKey: false}
+      const zoom_event = {type: "wheel" as "wheel", sx: 100, sy: 100, delta: 100, ctrl_key: false, shift_key: false}
 
       // perform the tool action
       wheel_zoom_view._scroll(zoom_event)

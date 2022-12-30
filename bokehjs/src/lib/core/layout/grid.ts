@@ -8,7 +8,7 @@ import {sum, some} from "../util/array"
 
 const {max, round} = Math
 
-class DefaultMap<K, V> {
+export class DefaultMap<K, V> {
   private _map = new Map<K, V>()
 
   constructor(readonly def: () => V) {}
@@ -28,8 +28,8 @@ class DefaultMap<K, V> {
   }
 }
 
-export type GridItem = {
-  layout: Layoutable
+export type GridItem<T extends Layoutable> = {
+  layout: T
   row: number
   col: number
   row_span?: number
@@ -83,8 +83,12 @@ export type ColsSizing = QuickTrackSizing | {[key: string]: QuickTrackSizing | C
 
 type Span = {r0: number, c0: number, r1: number, c1: number}
 
-class Container<T> {
+export class Container<T> {
   private readonly _items: {span: Span, data: T}[] = []
+
+  get size(): number {
+    return this._items.length
+  }
 
   private _nrows: number = 0
   private _ncols: number = 0
@@ -121,6 +125,10 @@ class Container<T> {
     return selected.map(({data}) => data)
   }
 
+  *[Symbol.iterator](): Generator<{span: Span, data: T}, void, undefined> {
+    yield* this._items
+  }
+
   foreach(fn: (span: Span, data: T) => void): void {
     for (const {span, data} of this._items) {
       fn(span, data)
@@ -136,7 +144,7 @@ class Container<T> {
   }
 }
 
-export class Grid extends Layoutable {
+export class Grid<T extends Layoutable = Layoutable> extends Layoutable {
   override *[Symbol.iterator]() {
     for (const {layout} of this.items) {
       yield layout
@@ -150,7 +158,7 @@ export class Grid extends Layoutable {
 
   private _state: GridState
 
-  constructor(public items: GridItem[] = []) {
+  constructor(public items: GridItem<T>[] = []) {
     super()
   }
 
@@ -180,12 +188,12 @@ export class Grid extends Layoutable {
     super._init()
 
     const items = new Container<Layoutable>()
-    for (const {layout, row, col, row_span, col_span} of this.items) {
+    for (const {layout, row, col, row_span=1, col_span=1} of this.items) {
       if (layout.sizing.visible) {
         const r0 = row
         const c0 = col
-        const r1 = row + (row_span != null ? row_span : 1) - 1
-        const c1 = col + (col_span != null ? col_span : 1) - 1
+        const r1 = row + row_span - 1
+        const c1 = col + col_span - 1
         items.add({r0, c0, r1, c1}, layout)
       }
     }
@@ -495,13 +503,13 @@ export class Grid extends Layoutable {
       return {...item, outer: new BBox(), inner: new BBox()}
     })
 
-    for (let r = 0, top = !this.absolute ? 0 : outer.top; r < nrows; r++) {
+    for (let r = 0, top = !this.absolute ? this.position.top : outer.top; r < nrows; r++) {
       const row = rows[r]
       row.top = top
       top += row.height + rspacing
     }
 
-    for (let c = 0, left = !this.absolute ? 0 : outer.left; c < ncols; c++) {
+    for (let c = 0, left = !this.absolute ? this.position.left : outer.left; c < ncols; c++) {
       const col = cols[c]
       col.left = left
       left += col.width + cspacing
@@ -603,17 +611,17 @@ export class Grid extends Layoutable {
       if (size_hint.inner != null) {
         let inner = inner_bbox(size_hint.inner)
 
-        if (size_hint.align !== false) {
-          const top = row_aligns[r0].start.get(outer.top)
-          const bottom = row_aligns[r1].end.get(rows[r1].bottom - outer.bottom)
+        //if (size_hint.align !== false) {
+        const top = row_aligns[r0].start.get(outer.top)
+        const bottom = row_aligns[r1].end.get(rows[r1].bottom - outer.bottom)
 
-          const left = col_aligns[c0].start.get(outer.left)
-          const right = col_aligns[c1].end.get(cols[c1].right - outer.right)
+        const left = col_aligns[c0].start.get(outer.left)
+        const right = col_aligns[c1].end.get(cols[c1].right - outer.right)
 
-          try {
-            inner = inner_bbox({top, bottom, left, right})
-          } catch {}
-        }
+        try {
+          inner = inner_bbox({top, bottom, left, right})
+        } catch {}
+        //}
 
         item.inner = inner
       } else

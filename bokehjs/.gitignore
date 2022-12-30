@@ -1,5 +1,7 @@
 /build
-node_modules/
 /npm-debug.log
-.package.json
 /.eslintcache
+.package.json
+/test/baselines/*/report.json
+/test/baselines/*/report.out
+!/test/baselines/*/*.png

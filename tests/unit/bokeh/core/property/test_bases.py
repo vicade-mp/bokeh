@@ -18,15 +18,16 @@ import pytest ; pytest
 
 # Standard library imports
 from typing import Any
+from unittest.mock import MagicMock, patch
 
 # External imports
 import numpy as np
-from mock import MagicMock, patch
+import pandas as pd
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
-from bokeh._testing.util.types import Capture
 from bokeh.core.has_props import HasProps
+from tests.support.util.api import verify_all
+from tests.support.util.types import Capture
 
 # Module under test
 import bokeh.core.property.bases as bcpb # isort:skip
@@ -176,7 +177,7 @@ class TestProperty:
         out, err = capsys.readouterr()
         assert err == ""
 
-    def test_matches_dicts_with_series_values(self, capsys: Capture, pd) -> None:
+    def test_matches_dicts_with_series_values(self, capsys: Capture) -> None:
         p = bcpb.Property()
         d1 = pd.DataFrame(dict(foo=np.arange(10)))
         d2 = pd.DataFrame(dict(foo=np.arange(10)))
@@ -193,7 +194,7 @@ class TestProperty:
         out, err = capsys.readouterr()
         assert err == ""
 
-    def test_matches_dicts_with_index_values(self, capsys: Capture, pd) -> None:
+    def test_matches_dicts_with_index_values(self, capsys: Capture) -> None:
         p = bcpb.Property()
         d1 = pd.DataFrame(dict(foo=np.arange(10)))
         d2 = pd.DataFrame(dict(foo=np.arange(10)))

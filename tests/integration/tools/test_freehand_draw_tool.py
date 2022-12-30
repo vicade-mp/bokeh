@@ -20,13 +20,7 @@ import pytest ; pytest
 # Standard library imports
 import time
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehServerPage, SinglePlotPage
-from bokeh._testing.util.compare import cds_data_almost_equal
-from bokeh._testing.util.selenium import RECORD
 from bokeh.application.handlers.function import ModifyDoc
 from bokeh.layouts import column
 from bokeh.models import (
@@ -38,13 +32,16 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehServerPage, SinglePlotPage
+from tests.support.util.compare import cds_data_almost_equal
+from tests.support.util.selenium import RECORD
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def _make_plot(num_objects=0):
@@ -85,7 +82,7 @@ class Test_FreehandDrawTool:
 
         page = single_plot_page(plot)
 
-        button = page.get_toolbar_button('freehand-draw')
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' in button.get_attribute('class')
 
         assert page.has_no_console_errors()
@@ -96,16 +93,16 @@ class Test_FreehandDrawTool:
         page = single_plot_page(plot)
 
         # Check is active
-        button = page.get_toolbar_button('freehand-draw')
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' in button.get_attribute('class')
 
         # Click and check is not active
-        button = page.get_toolbar_button('freehand-draw')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' not in button.get_attribute('class')
 
         # Click again and check is active
-        button = page.get_toolbar_button('freehand-draw')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' in button.get_attribute('class')
 
@@ -142,7 +139,6 @@ class Test_FreehandDrawTool:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_freehand_draw_syncs_to_server(self, bokeh_server_page: BokehServerPage) -> None:
         expected = {'xs': [[1.6216216216216217, 2.027027027027027, 2.027027027027027, 2.027027027027027]],
                     'ys': [[1.5, 1.125, 1.125, 1.125]]}
@@ -155,7 +151,6 @@ class Test_FreehandDrawTool:
 
         assert page.results == {"matches": "True"}
 
-    @flaky(max_runs=10)
     def test_line_delete_syncs_to_server(self, bokeh_server_page: BokehServerPage) -> None:
         expected = {'xs': [], 'ys': []}
 

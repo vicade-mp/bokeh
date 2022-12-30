@@ -63,7 +63,7 @@ export class Line extends VisualProperties {
     ctx.lineWidth      = this.line_width.get_value()
     ctx.lineJoin       = this.line_join.get_value()
     ctx.lineCap        = this.line_cap.get_value()
-    ctx.lineDash       = resolve_line_dash(this.line_dash.get_value())
+    ctx.setLineDash(resolve_line_dash(this.line_dash.get_value()))
     ctx.lineDashOffset = this.line_dash_offset.get_value()
   }
 }
@@ -115,7 +115,7 @@ export class LineScalar extends VisualUniforms {
     ctx.lineWidth      = this.line_width.value
     ctx.lineJoin       = this.line_join.value
     ctx.lineCap        = this.line_cap.value
-    ctx.lineDash       = resolve_line_dash(this.line_dash.value)
+    ctx.setLineDash(resolve_line_dash(this.line_dash.value))
     ctx.lineDashOffset = this.line_dash_offset.value
   }
 }
@@ -142,8 +142,18 @@ export class LineVector extends VisualUniforms {
     return true
   }
 
+  v_doit(i: number): boolean {
+    if (this.line_color.get(i) == 0)
+      return false
+    if (this.line_alpha.get(i) == 0)
+      return false
+    if (this.line_width.get(i) == 0)
+      return false
+    return true
+  }
+
   apply(ctx: Context2d, i: number): boolean {
-    const {doit} = this
+    const doit = this.v_doit(i)
     if (doit) {
       this.set_vectorize(ctx, i)
       ctx.stroke()
@@ -177,7 +187,7 @@ export class LineVector extends VisualUniforms {
     ctx.lineWidth = width
     ctx.lineJoin = join
     ctx.lineCap = cap
-    ctx.lineDash = resolve_line_dash(dash)
+    ctx.setLineDash(resolve_line_dash(dash))
     ctx.lineDashOffset = offset
   }
 }

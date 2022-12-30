@@ -1,14 +1,12 @@
 import * as p from "core/properties"
 import {EventType} from "core/ui_events"
 import {Signal0} from "core/signaling"
-import {Class} from "core/class"
 import {Model} from "../../model"
-import {Tool} from "./tool"
-import {ToolButtonView} from "./tool_button"
-import {InspectTool} from "./inspectors/inspect_tool"
-import {Renderer} from "../renderers/renderer"
+import {Tool, ToolView, EventRole} from "./tool"
+import {ToolButton} from "./tool_button"
+import {type InspectTool} from "./inspectors/inspect_tool"
 import {MenuItem} from "core/util/menus"
-import {enumerate, flat_map, some} from "core/util/iterator"
+import {enumerate, some} from "core/util/iterator"
 
 export type ToolLike<T extends Tool> = T | ToolProxy<T>
 
@@ -26,6 +24,7 @@ export interface ToolProxy<T extends Tool> extends ToolProxy.Attrs<T> {}
 
 export class ToolProxy<T extends Tool> extends Model {
   override properties: ToolProxy.Props<T>
+  override __view_type__: ToolView
 
   constructor(attrs?: Partial<ToolProxy.Attrs<T>>) {
     super(attrs)
@@ -47,12 +46,22 @@ export class ToolProxy<T extends Tool> extends Model {
     return this.tools[0]
   }
 
-  get button_view(): Class<ToolButtonView> {
-    return this.tools[0].button_view
+  tool_button(): ToolButton {
+    const button = this.tools[0].tool_button()
+    button.tool = this
+    return button
   }
 
-  get event_type(): EventType | EventType[] {
-    return this.tools[0].event_type!
+  get event_type(): EventType | EventType[] | undefined {
+    return this.tools[0].event_type
+  }
+
+  get event_role(): EventRole {
+    return this.tools[0].event_role
+  }
+
+  get event_types(): EventType[] {
+    return this.tools[0].event_types
   }
 
   get default_order(): number {
@@ -72,12 +81,8 @@ export class ToolProxy<T extends Tool> extends Model {
   }
 
   get toggleable(): boolean {
-    const tool = this.tools[0]
-    return tool instanceof InspectTool && tool.toggleable
-  }
-
-  get computed_overlays(): Renderer[] {
-    return [...flat_map(this.tools, (tool) => tool.computed_overlays)]
+    const tool = this.tools[0] as Tool
+    return "toggleable" in tool && (tool as InspectTool).toggleable
   }
 
   override initialize(): void {

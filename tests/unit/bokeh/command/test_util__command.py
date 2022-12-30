@@ -19,12 +19,10 @@ import pytest ; pytest
 # Standard library imports
 import os
 import tempfile
-
-# External imports
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 # Bokeh imports
-from bokeh._testing.util.types import Capture
+from tests.support.util.types import Capture
 
 # Module under test
 import bokeh.command.util as util # isort:skip
@@ -75,7 +73,8 @@ def test_build_single_handler_application_main_py(mock_warn: MagicMock) -> None:
     f.close() #close file to open it later on windows
     util.build_single_handler_application(f.name)
     assert mock_warn.called
-    assert mock_warn.call_args[0] == (DIRSTYLE_MAIN_WARNING_COPY,)
+    assert mock_warn.call_args[0] == (DIRSTYLE_MAIN_WARNING_COPY, None)
+    assert mock_warn.call_args[1] == {"stacklevel": 3}
     os.remove(f.name)
 
 #-----------------------------------------------------------------------------

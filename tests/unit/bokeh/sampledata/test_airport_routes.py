@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# External imports
+import pandas as pd
+
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.airport_routes as bsa # isort:skip
@@ -38,14 +41,14 @@ ALL = (
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.airport_routes", ALL))
 
 @pytest.mark.sampledata
-def test_airports(pd) -> None:
+def test_airports() -> None:
     import bokeh.sampledata.airport_routes as bsa
     assert isinstance(bsa.airports, pd.DataFrame)
 
     # don't check detail for external data
 
 @pytest.mark.sampledata
-def test_routes(pd) -> None:
+def test_routes() -> None:
     import bokeh.sampledata.airport_routes as bsa
     assert isinstance(bsa.routes, pd.DataFrame)
 

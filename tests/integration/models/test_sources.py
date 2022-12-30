@@ -17,12 +17,7 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehServerPage
-from bokeh._testing.util.selenium import RECORD, find_element_for
 from bokeh.layouts import column
 from bokeh.models import (
     Button,
@@ -31,13 +26,15 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehServerPage
+from tests.support.util.selenium import RECORD, find_element_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def is_cds_data_changed(evt):
@@ -53,7 +50,6 @@ def is_cds_data_streamed(evt):
 
 @pytest.mark.selenium
 class Test_ColumnDataSource:
-    @flaky(max_runs=10)
     def test_client_source_patch_sends_patch_event(self, bokeh_server_page: BokehServerPage) -> None:
         data = {'x': [1,2,3,4], 'y': [10,20,30,40]}
         source = ColumnDataSource(data)
@@ -96,10 +92,8 @@ class Test_ColumnDataSource:
             evts = msg.content.get('events', [])
             assert not any(is_cds_data_patched(evt) for evt in evts)
 
-        # XXX (bev) disabled until https://github.com/bokeh/bokeh/issues/7970 is resolved
-        #assert page.has_no_console_errors()
+        assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_client_source_stream_sends_patch_event(self, bokeh_server_page: BokehServerPage) -> None:
         data = {'x': [1,2,3,4], 'y': [10,20,30,40]}
         source = ColumnDataSource(data)
@@ -142,5 +136,4 @@ class Test_ColumnDataSource:
             evts = msg.content.get('events', [])
             assert not any(is_cds_data_streamed(evt) for evt in evts)
 
-        # XXX (bev) disabled until https://github.com/bokeh/bokeh/issues/7970 is resolved
-        #assert page.has_no_console_errors()
+        assert page.has_no_console_errors()

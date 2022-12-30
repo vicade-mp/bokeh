@@ -18,8 +18,6 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.plugins.project import SinglePlotPage
-from bokeh._testing.util.selenium import RECORD, SCROLL
 from bokeh.events import RangesUpdate
 from bokeh.models import (
     ColumnDataSource,
@@ -29,13 +27,15 @@ from bokeh.models import (
     Rect,
     WheelZoomTool,
 )
+from tests.support.plugins.project import SinglePlotPage
+from tests.support.util.selenium import RECORD, SCROLL
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def _make_plot(dimensions="both"):
@@ -59,7 +59,7 @@ class Test_WheelZoomTool:
 
         page = single_plot_page(plot)
 
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' not in button.get_attribute('class')
 
         assert page.has_no_console_errors()
@@ -70,16 +70,16 @@ class Test_WheelZoomTool:
         page = single_plot_page(plot)
 
         # Check is not active
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         assert 'active' not in button.get_attribute('class')
 
         # Click and check is active
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' in button.get_attribute('class')
 
         # Click again and check is not active
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
         assert 'active' not in button.get_attribute('class')
 
@@ -102,7 +102,7 @@ class Test_WheelZoomTool:
         assert results['yrend'] == 1
 
         # Next check that scrolling adjusts the range after the tool is activated
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.driver.execute_script(SCROLL(200))
@@ -134,7 +134,7 @@ class Test_WheelZoomTool:
         assert results['yrend'] == 1
 
         # Next check that scrolling adjusts the range after the tool is activated
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.driver.execute_script(SCROLL(-200))
@@ -166,7 +166,7 @@ class Test_WheelZoomTool:
         assert results['yrend'] == 1
 
         # Next check that scrolling adjusts the x range after the tool is activated
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.driver.execute_script(SCROLL(-200))
@@ -208,7 +208,7 @@ class Test_WheelZoomTool:
         assert results['yrend'] == 1
 
         # Next check that scrolling adjusts the y range after the tool is activated
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.driver.execute_script(SCROLL(-200))
@@ -249,7 +249,7 @@ class Test_WheelZoomTool:
 
         page = single_plot_page(plot)
 
-        button = page.get_toolbar_button('wheel-zoom')
+        [button] = page.get_toolbar_buttons(plot)
         button.click()
 
         page.driver.execute_script(SCROLL(-200))

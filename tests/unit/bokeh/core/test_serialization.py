@@ -24,9 +24,9 @@ from typing import Any, Sequence
 
 # External imports
 import numpy as np
+import pandas as pd
 
 # Bokeh imports
-from bokeh._testing.util.types import Capture
 from bokeh.colors import RGB
 from bokeh.core.has_props import HasProps
 from bokeh.core.properties import (
@@ -48,11 +48,13 @@ from bokeh.core.serialization import (
     Ref,
     SerializationError,
     Serializer,
+    SetRep,
     SliceRep,
     TypedArrayRep,
 )
 from bokeh.model import Model
 from bokeh.util.dataclasses import NotRequired, Unspecified, dataclass
+from tests.support.util.types import Capture
 
 #-----------------------------------------------------------------------------
 # Setup
@@ -108,6 +110,15 @@ class TestSerializer:
         assert encoder.encode(+inf) == NumberRep(type="number", value="+inf")
 
         assert encoder.buffers == []
+
+    def test_non_serializable(self):
+        encoder = Serializer()
+
+        with pytest.raises(SerializationError):
+            encoder.encode(property())
+
+        with pytest.raises(SerializationError):
+            encoder.encode(range(0, 10))
 
     def test_max_int(self, capsys: Capture) -> None:
         encoder = Serializer()
@@ -188,7 +199,7 @@ class TestSerializer:
         encoder = Serializer()
         rep = encoder.encode(val)
 
-        assert rep == MapRep(type="map", entries=[])
+        assert rep == MapRep(type="map")
         assert encoder.buffers == []
 
     def test_dict(self) -> None:
@@ -215,6 +226,15 @@ class TestSerializer:
         encoder = Serializer()
         with pytest.raises(SerializationError):
             encoder.encode(val)
+
+    def test_set(self) -> None:
+        encoder = Serializer()
+
+        val0: set[int] = set()
+        assert encoder.encode(val0) == SetRep(type="set")
+
+        val1 = {1, 2, 3}
+        assert encoder.encode(val1) == SetRep(type="set", entries=[1, 2, 3])
 
     def test_slice(self) -> None:
         encoder = Serializer()
@@ -695,7 +715,7 @@ class TestSerializer:
         assert rep == "rgba(16, 32, 64, 0.1)"
         assert encoder.buffers == []
 
-    def test_pd_series(self, pd) -> None:
+    def test_pd_series(self) -> None:
         encoder = Serializer()
         val = pd.Series([0, 1, 2, 3, 4, 5], dtype="int32")
         rep = encoder.encode(val)
@@ -746,7 +766,7 @@ class TestSerializer:
         assert rep == 45135000.0
         assert isinstance(rep, float)
 
-    def test_pd_timestamp(self, pd) -> None:
+    def test_pd_timestamp(self) -> None:
         encoder = Serializer()
         val = pd.Timestamp('April 28, 1948')
         rep = encoder.encode(val)
@@ -819,7 +839,7 @@ class TestSerializeJson:
         a = np.arange(5)
         assert self.serialize(a) == '[0,1,2,3,4]'
 
-    def test_with_pd_series(self, pd) -> None:
+    def test_with_pd_series(self) -> None:
         s = pd.Series([0, 1, 2, 3, 4])
         assert self.serialize(s) == '[0,1,2,3,4]'
 
@@ -832,7 +852,7 @@ class TestSerializeJson:
         assert deserialized[2] == '-Infinity'
         assert deserialized[3] == 0
 
-    def test_nans_and_infs_pandas(self, pd) -> None:
+    def test_nans_and_infs_pandas(self) -> None:
         arr = pd.Series(np.array([np.nan, np.inf, -np.inf, 0]))
         serialized = self.serialize(arr)
         deserialized = self.deserialize(serialized)
@@ -841,7 +861,7 @@ class TestSerializeJson:
         assert deserialized[2] == '-Infinity'
         assert deserialized[3] == 0
 
-    def test_pandas_datetime_types(self, pd) -> None:
+    def test_pandas_datetime_types(self) -> None:
         ''' should convert to millis '''
         idx = pd.date_range('2001-1-1', '2001-1-5')
         df = pd.DataFrame({'vals' :idx}, index=idx)
@@ -905,7 +925,7 @@ class TestSerializeJson:
         deserialized = self.deserialize(serialized)
         assert deserialized == 3000000
 
-    def test_pandas_timedelta_types(self, pd) -> None:
+    def test_pandas_timedelta_types(self) -> None:
         delta = pd.Timedelta("3000ms")
         serialized = self.serialize(delta)
         deserialized = self.deserialize(serialized)
@@ -1004,7 +1024,7 @@ def test_transform_column_source_data_with_buffers(pd, cols, dt1, dt2) -> None:
                 assert isinstance(out[x], list)
                 assert out[x] == list(d[x])
 
-def test_transform_series_force_list_default_with_buffers(pd) -> None:
+def test_transform_series_force_list_default_with_buffers() -> None:
     # default int seems to be int64, can't be converted to buffer!
     df = pd.Series([1, 3, 5, 6, 8])
     out = bus.transform_series(df)
@@ -1119,7 +1139,7 @@ def test_transform_series_force_list_default_with_buffers(pd) -> None:
             "tags": [],
             'js_property_callbacks': dict(type="map", entries=[]),
             "js_event_callbacks": dict(type="map", entries=[]),
-            "subscribed_events": [],
+            "subscribed_events": dict(type="set", entries=[]),
             "syncable": True,
             "foo": 42,
             "bar": "world",
@@ -1133,7 +1153,7 @@ def test_transform_series_force_list_default_with_buffers(pd) -> None:
             '"js_property_callbacks":{"entries":[],"type":"map"},' +
             '"name":null,' +
             '"null_child":null,' +
-            '"subscribed_events":[],' +
+            '"subscribed_events":{"entries":[],"type":"set"},' +
             '"syncable":true,' +
             '"tags":[]}'
         ) % (child_obj.id, obj.id) == json_string

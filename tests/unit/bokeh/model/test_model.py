@@ -18,9 +18,10 @@ import pytest ; pytest
 
 # Bokeh imports
 from bokeh.core.properties import Int, List, String
-from bokeh.models import *  # NOQA
+from bokeh.core.types import ID
+from bokeh.models import *  # noqa: F403
 from bokeh.models import CustomJS
-from bokeh.plotting import *  # NOQA
+from bokeh.plotting import *  # noqa: F403
 
 from bokeh.document import document # isort:skip
 
@@ -38,8 +39,13 @@ from bokeh.model import Model # isort:skip
 class SomeModel(Model):
     a = Int(12)
     b = String("hello")
-    c = List(Int, [1, 2, 3])
+    c = List(Int, default=[1, 2, 3])
 
+class Test_Model___init__:
+
+    def test_id_not_permitted(self) -> None:
+        with pytest.raises(ValueError):
+            SomeModel(id=ID("foo"))
 
 class Test_js_on_change:
     def test_exception_for_no_callbacks(self) -> None:
@@ -259,6 +265,10 @@ def test_select() -> None:
     # set_select() on class
     root2.set_select(SomeModel, dict(name='new_name'))
     assert {root2} == set(root2.select(dict(name="new_name")))
+
+def test_args_pass_through():
+    with pytest.raises(ValueError, match=r"positional arguments are not allowed"):
+        SomeModel(1, b="a")
 
 #-----------------------------------------------------------------------------
 # Dev API

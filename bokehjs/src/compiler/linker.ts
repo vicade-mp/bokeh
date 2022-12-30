@@ -2,7 +2,7 @@ import {resolve, relative, join, dirname, basename, extname, normalize, sep} fro
 import module from "module"
 import crypto from "crypto"
 
-import * as ts from "typescript"
+import ts from "typescript"
 import * as terser from "terser"
 import chalk from "chalk"
 
@@ -27,7 +27,7 @@ export type Parent = {
 
 export type ResoType = "ESM" | "CJS"
 
-export type ModuleType = "js" | "json" | "css"
+export type ModuleType = "js" | "json" | "json5" | "yaml" | "css"
 
 export type ModuleInfo = {
   file: Path
@@ -145,7 +145,7 @@ export class Bundle {
       line += newlines(start)
 
       const source_with_sourcemap = minified ? artifact.code.min_source : artifact.code.source
-      const source = combine.removeComments(source_with_sourcemap).trimRight()
+      const source = combine.removeComments(source_with_sourcemap).trimEnd()
       sources += source
       const map_path = join("@@", relative(root_path, module.file))
       sourcemap.addFile({source: source_with_sourcemap, sourceFile: map_path}, {line})
@@ -674,9 +674,11 @@ export class Linker {
     }
 
     const hash = crypto.createHash("sha256").update(source).digest("hex")
-    const type = (() => {
+    const type: ModuleType = (() => {
       switch (extname(file)) {
         case ".json": return "json"
+        case ".json5": return "json5"
+        case ".yaml": return "yaml"
         case ".css": return "css"
         case ".mjs": return "js"
         case ".cjs": return "js"
@@ -694,10 +696,26 @@ const json = ${source};
 export ${export_type} json;
 `
         break
+      case "json5":
+        source = `\
+const json5 = \`
+${source}
+\`;
+export ${export_type} json5;
+`
+        break
       case "css":
         source = `\
 const css = \`${source}\`;
 export ${export_type} css;
+`
+        break
+      case "yaml":
+        source = `\
+const yaml = \`
+${source}
+\`;
+export ${export_type} yaml;
 `
         break
     }

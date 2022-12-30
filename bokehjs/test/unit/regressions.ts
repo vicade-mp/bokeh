@@ -2,19 +2,20 @@ import sinon from "sinon"
 
 import {expect} from "assertions"
 import {display, fig} from "./_util"
+import {PlotActions, xy, click} from "../interactive"
 
 import {
   HoverTool, BoxAnnotation, ColumnDataSource, CDSView, BooleanFilter, GlyphRenderer, Circle,
-  Legend, LegendItem, Line, Rect, Title, CopyTool,
+  Legend, LegendItem, Line, Rect, Title, CopyTool, BoxSelectTool,
 } from "@bokehjs/models"
 import {assert} from "@bokehjs/core/util/assert"
 import {build_view} from "@bokehjs/core/build_views"
 import {base64_to_buffer} from "@bokehjs/core/util/buffer"
-import {offset} from "@bokehjs/core/dom"
+import {offset_bbox} from "@bokehjs/core/dom"
 import {Color} from "@bokehjs/core/types"
 import {Document, DocJson, DocumentEvent, ModelChangedEvent} from "@bokehjs/document"
 import {gridplot} from "@bokehjs/api/gridplot"
-import {defer} from "@bokehjs/core/util/defer"
+import {defer, paint} from "@bokehjs/core/util/defer"
 
 import {ImageURLView} from "@bokehjs/models/glyphs/image_url"
 import {CopyToolView} from "@bokehjs/models/tools/actions/copy_tool"
@@ -146,7 +147,7 @@ describe("Bug", () => {
         const lnv = view.renderer_views.get(renderer)!
         const ln_spy = sinon.spy(lnv, "request_render")
         const ui = view.canvas_view.ui_event_bus
-        const {left, top} = offset(ui.hit_area)
+        const {left, top} = offset_bbox(ui.hit_area)
 
         for (let i = 0; i <= 1; i += 0.2) {
           const [[sx], [sy]] = lnv.coordinates.map_to_screen([i], [i])
@@ -176,7 +177,7 @@ describe("Bug", () => {
       const gv = view.renderer_views.get(renderer)!
       const gv_spy = sinon.spy(gv, "request_render")
       const ui = view.canvas_view.ui_event_bus
-      const {left, top} = offset(ui.hit_area)
+      const {left, top} = offset_bbox(ui.hit_area)
 
       for (let i = 0; i <= 1; i += 0.2) {
         const [[sx], [sy]] = gv.coordinates.map_to_screen([i], [i])
@@ -382,7 +383,7 @@ describe("Bug", () => {
 
       async function tap(sx: number, sy: number) {
         const ui = view.canvas_view.ui_event_bus
-        const {left, top} = offset(ui.hit_area)
+        const {left, top} = offset_bbox(ui.hit_area)
         const ev = new MouseEvent("click", {clientX: left + sx, clientY: top + sy})
         const hev = {
           type: "tap",
@@ -426,19 +427,46 @@ describe("Bug", () => {
       const grid = gridplot(plots, {merge_tools: true})
       const {view} = await display(grid)
 
-      const el = view.toolbar_box_view.toolbar_view.shadow_el.querySelector(".bk-toolbar-button")
+      const el = view.toolbar_view.shadow_el.querySelector(".bk-ClickButton") // TODO: don't depend on CSS selectors
       assert(el != null)
 
       const spy = sinon.spy(CopyToolView.prototype, "copy")
       try {
         // XXX: this code may raise `DOMException: Document is not focused` during interactive testing
-        const ev = new MouseEvent("click", {clientX: 5, clientY: 5, bubbles: true})
-        el.dispatchEvent(ev)
+        await click(el)
         await defer()
         expect(spy.callCount).to.be.equal(1)
       } finally {
         spy.restore()
       }
+    })
+  })
+
+  describe("in issue #8168", () => {
+    it("allows to start selection from toolbar or axes", async () => {
+      const p = fig([200, 200], {
+        tools: [new BoxSelectTool()],
+        toolbar_location: "above",
+        x_axis_location: null,
+        y_axis_location: null,
+        min_border: 0,
+      })
+      const r = p.circle({x: [1, 2, 3], y: [1, 2, 3]})
+
+      const {view} = await display(p)
+      await paint()
+      expect(r.data_source.selected.indices).to.be.equal([])
+
+      const actions = new PlotActions(view, {units: "screen"})
+
+      await actions.pan(xy(0, 0), xy(200, 200))
+      await paint()
+      expect(r.data_source.selected.indices).to.be.equal([])
+
+      const tbv = view.owner.get_one(p.toolbar)
+      await actions.pan(xy(0, tbv.bbox.height + 1), xy(200, 200))
+      await paint()
+      expect(r.data_source.selected.indices).to.be.equal([0, 1, 2])
     })
   })
 })

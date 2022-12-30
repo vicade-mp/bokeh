@@ -17,9 +17,9 @@ import pytest ; pytest
 #-----------------------------------------------------------------------------
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
 from bokeh.colors import named
 from bokeh.palettes import __palettes__
+from tests.support.util.api import verify_all
 
 # Module under test
 import bokeh.core.enums as bce # isort:skip
@@ -36,6 +36,7 @@ ALL  = (
     'ButtonType',
     'CalendarPosition',
     'ContextWhich',
+    'CoordinateUnits',
     'DashPattern',
     'DateFormat',
     'DatetimeUnits',
@@ -44,6 +45,7 @@ ALL  = (
     'Direction',
     'Enumeration',
     'enumeration',
+    'FlowMode',
     'FontStyle',
     'HAlign',
     'HatchPattern',
@@ -71,6 +73,7 @@ ALL  = (
     'RenderLevel',
     'ResetPolicy',
     'RoundingFunction',
+    'ScrollbarPolicy',
     'SelectionMode',
     'SizingMode',
     'SizingPolicy',
@@ -277,7 +280,7 @@ class Test_bce:
         assert tuple(bce.SelectionMode) == ("replace", "append", "intersect", "subtract")
 
     def test_SizingMode(self) -> None:
-        assert tuple(bce.SizingMode) == ("stretch_width", "stretch_height", "stretch_both", "scale_width", "scale_height", "scale_both", "fixed")
+        assert tuple(bce.SizingMode) == ("stretch_width", "stretch_height", "stretch_both", "scale_width", "scale_height", "scale_both", "fixed", "inherit")
 
     def test_SortDirection(self) -> None:
         assert tuple(bce.SortDirection) == ("ascending", "descending")
@@ -332,12 +335,14 @@ def test_enums_contents() -> None:
         'ButtonType',
         'CalendarPosition',
         'ContextWhich',
+        'CoordinateUnits',
         'DashPattern',
         'DateFormat',
         'DatetimeUnits',
         'Dimension',
         'Dimensions',
         'Direction',
+        'FlowMode',
         'FontStyle',
         'HAlign',
         'HatchPattern',
@@ -365,6 +370,7 @@ def test_enums_contents() -> None:
         'RenderLevel',
         'ResetPolicy',
         'RoundingFunction',
+        'ScrollbarPolicy',
         'SelectionMode',
         'SizingMode',
         'SizingPolicy',

@@ -1,6 +1,7 @@
 import {Size, Sizeable, SizeHint, BoxSizing, SizingPolicy, Percent} from "./types"
 import {BBox, CoordinateMapper} from "../util/bbox"
 import {isNumber} from "../util/types"
+import {assert} from "../util/assert"
 
 const {min, max, round} = Math
 
@@ -13,6 +14,8 @@ export abstract class Layoutable {
 
   absolute: boolean = false
 
+  position: {left: number, top: number} = {left: 0, top: 0}
+
   protected _bbox: BBox = new BBox()
   protected _inner_bbox: BBox = new BBox()
 
@@ -24,20 +27,27 @@ export abstract class Layoutable {
     return this._inner_bbox
   }
 
-  private _sizing: ExtBoxSizing
+  private _sizing: ExtBoxSizing | null = null
 
   get sizing(): ExtBoxSizing {
+    assert(this._sizing != null)
     return this._sizing
   }
 
   private _dirty: boolean = false
 
-  set visible(visible: boolean) {
-    this._sizing.visible = visible
-    this._dirty = true
+  get visible(): boolean {
+    return this.sizing.visible
   }
 
-  set_sizing(sizing: Partial<BoxSizing>): void {
+  set visible(visible: boolean) {
+    if (this.sizing.visible != visible) {
+      this.sizing.visible = visible
+      this._dirty = true
+    }
+  }
+
+  set_sizing(sizing: Partial<BoxSizing> = {}): void {
     const width_policy = sizing.width_policy ?? "fit"
     const width = sizing.width
     const min_width = sizing.min_width
@@ -50,7 +60,7 @@ export abstract class Layoutable {
 
     const aspect = sizing.aspect
     const margin = sizing.margin ?? {top: 0, right: 0, bottom: 0, left: 0}
-    const visible = sizing.visible !== false
+    const visible = sizing.visible ?? true
     const halign = sizing.halign ?? "start"
     const valign = sizing.valign ?? "start"
 
@@ -149,6 +159,10 @@ export abstract class Layoutable {
   protected abstract _measure(viewport: Sizeable): SizeHint
 
   measure(viewport_size: Size): SizeHint {
+    if (this._sizing == null) {
+      this.set_sizing()
+    }
+
     if (!this.sizing.visible)
       return {width: 0, height: 0}
 
@@ -180,7 +194,8 @@ export abstract class Layoutable {
     })
 
     const {width, height} = size_hint
-    const outer = new BBox({left: 0, top: 0, width, height})
+    const {left, top} = this.position
+    const outer = new BBox({left, top, width, height})
 
     let inner: BBox | undefined = undefined
 
@@ -225,43 +240,6 @@ export abstract class Layoutable {
     const {_dirty} = this
     this._dirty = false
     return _dirty
-  }
-}
-
-export class LayoutItem extends Layoutable {
-
-  protected _measure(viewport: Size): SizeHint {
-    const {width_policy, height_policy} = this.sizing
-
-    const width = (() => {
-      const {width} = this.sizing
-      if (viewport.width == Infinity) {
-        return width ?? 0
-      } else {
-        switch (width_policy) {
-          case "fixed": return width ?? 0
-          case "min":   return width != null ? min(viewport.width, width) : 0
-          case "fit":   return width != null ? min(viewport.width, width) : viewport.width
-          case "max":   return width != null ? max(viewport.width, width) : viewport.width
-        }
-      }
-    })()
-
-    const height = (() => {
-      const {height} = this.sizing
-      if (viewport.height == Infinity) {
-        return height ?? 0
-      } else {
-        switch (height_policy) {
-          case "fixed": return height ?? 0
-          case "min":   return height != null ? min(viewport.height, height) : 0
-          case "fit":   return height != null ? min(viewport.height, height) : viewport.height
-          case "max":   return height != null ? max(viewport.height, height) : viewport.height
-        }
-      }
-    })()
-
-    return {width, height}
   }
 }
 

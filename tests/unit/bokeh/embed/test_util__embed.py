@@ -18,9 +18,7 @@ import pytest ; pytest
 
 # Standard library imports
 import logging
-
-# External imports
-from mock import MagicMock, patch
+from unittest.mock import MagicMock, patch
 
 # Bokeh imports
 from bokeh import __version__
@@ -99,7 +97,7 @@ class _GoodEventCallback:
 class EmbedTestUtilModel(Model):
     a = Int(12)
     b = String("hello")
-    c = List(Int, [1, 2, 3])
+    c = List(Int, default=[1, 2, 3])
 
 #-----------------------------------------------------------------------------
 # General API

@@ -4,12 +4,15 @@ import {DEFAULT_POLY_OVERLAY} from "./poly_select_tool"
 import {SelectionMode} from "core/enums"
 import {PolyGeometry} from "core/geometry"
 import {PanEvent, KeyEvent} from "core/ui_events"
-import {Keys} from "core/dom"
 import * as p from "core/properties"
 import {tool_icon_lasso_select} from "styles/icons.css"
 
 export class LassoSelectToolView extends SelectToolView {
   override model: LassoSelectTool
+
+  override get overlays() {
+    return [...super.overlays, this.model.overlay]
+  }
 
   protected sxs: number[] = []
   protected sys: number[] = []
@@ -25,7 +28,7 @@ export class LassoSelectToolView extends SelectToolView {
   }
 
   override _keyup(ev: KeyEvent): void {
-    if (ev.keyCode == Keys.Enter)
+    if (ev.key == "Enter" || (ev.key == "Escape" && this.model.persistent))
       this._clear_overlay()
   }
 
@@ -47,22 +50,22 @@ export class LassoSelectToolView extends SelectToolView {
 
   override _pan_end(ev: PanEvent): void {
     const {sxs, sys} = this
-    this._clear_overlay()
+    if (!this.model.persistent)
+      this._clear_overlay()
     this._do_select(sxs, sys, true, this._select_mode(ev))
     this.plot_view.state.push("lasso_select", {selection: this.plot_view.get_selection()})
   }
 
   _append_overlay(sx: number, sy: number): void {
-    const {sxs, sys} = this
-    sxs.push(sx)
-    sys.push(sy)
-    this.model.overlay.update({xs: sxs, ys: sys})
+    this.sxs.push(sx)
+    this.sys.push(sy)
+    this.model.overlay.update({xs: this.sxs, ys: this.sys})
   }
 
   _clear_overlay(): void {
     this.sxs = []
     this.sys = []
-    this.model.overlay.update({xs: this.sxs, ys: this.sys})
+    this.model.overlay.clear()
   }
 
   _do_select(sx: number[], sy: number[], final: boolean, mode: SelectionMode): void {
@@ -77,6 +80,8 @@ export namespace LassoSelectTool {
   export type Props = SelectTool.Props & {
     select_every_mousemove: p.Property<boolean>
     overlay: p.Property<PolyAnnotation>
+    /** internal */
+    persistent: p.Property<boolean>
   }
 }
 
@@ -85,8 +90,6 @@ export interface LassoSelectTool extends LassoSelectTool.Attrs {}
 export class LassoSelectTool extends SelectTool {
   override properties: LassoSelectTool.Props
   override __view_type__: LassoSelectToolView
-
-  override overlay: PolyAnnotation
 
   constructor(attrs?: Partial<LassoSelectTool.Attrs>) {
     super(attrs)
@@ -100,6 +103,10 @@ export class LassoSelectTool extends SelectTool {
       overlay:                [ Ref(PolyAnnotation), DEFAULT_POLY_OVERLAY ],
     }))
 
+    this.internal<LassoSelectTool.Props>(({Boolean}) => ({
+      persistent: [ Boolean, false ],
+    }))
+
     this.register_alias("lasso_select", () => new LassoSelectTool())
   }
 
@@ -107,8 +114,4 @@ export class LassoSelectTool extends SelectTool {
   override tool_icon = tool_icon_lasso_select
   override event_type = "pan" as "pan"
   override default_order = 12
-
-  override get computed_overlays() {
-    return [...super.computed_overlays, this.overlay]
-  }
 }

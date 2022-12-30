@@ -7,7 +7,7 @@ import {Plot} from "../plots/plot"
 import {CartesianFrame} from "../canvas/cartesian_frame"
 import {Range} from "../ranges/range"
 import {Range1d} from "../ranges/range1d"
-import {div, style, remove} from "core/dom"
+import {div, remove, InlineStyleSheet} from "core/dom"
 import * as p from "core/properties"
 import {Image, ImageLoader} from "core/util/image"
 import {includes} from "core/util/array"
@@ -108,12 +108,12 @@ export class TileRendererView extends RendererView {
         },
       })
 
-      const style_el = style(attribution_css)
       const contents_el = div()
       contents_el.innerHTML = attribution
 
       const shadow_el = this.attribution_el.attachShadow({mode: "open"})
-      shadow_el.appendChild(style_el)
+      const stylesheet = new InlineStyleSheet(attribution_css)
+      stylesheet.install(shadow_el)
       shadow_el.appendChild(contents_el)
 
       this.attribution_el.title = contents_el.textContent!.replace(/\s*\n\s*/g, " ")
@@ -242,10 +242,10 @@ export class TileRendererView extends RendererView {
       const sh = symax - symin
       const sx = sxmin
       const sy = symin
-      const old_smoothing = this.map_canvas.getImageSmoothingEnabled()
-      this.map_canvas.setImageSmoothingEnabled(this.model.smoothing)
+      const old_smoothing = this.map_canvas.imageSmoothingEnabled
+      this.map_canvas.imageSmoothingEnabled = this.model.smoothing
       this.map_canvas.drawImage(tile_data.img, sx, sy, sw, sh)
-      this.map_canvas.setImageSmoothingEnabled(old_smoothing)
+      this.map_canvas.imageSmoothingEnabled = old_smoothing
       tile_data.finished = true
     }
   }

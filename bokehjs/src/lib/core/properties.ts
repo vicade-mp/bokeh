@@ -231,7 +231,6 @@ export function Alias(attr: string) {
 
 export class PrimitiveProperty<T> extends Property<T> {}
 
-/** @deprecated */
 export class Font extends PrimitiveProperty<string> {
   override _default_override(): string | Unset {
     return settings.dev ? "Bokeh" : unset
@@ -583,7 +582,7 @@ export class ColorSpec extends DataSpec<types.Color | null> {
     return encode_rgba(color2rgba(color))
   }
 
-  override v_materialize(colors: Arrayable<types.Color | null>): ColorArray {
+  override v_materialize(colors: Arrayable<types.Color | null> | NDArray): ColorArray {
     if (is_NDArray(colors)) {
       if (colors.dtype == "uint32" && colors.dimension == 1) {
         return to_big_endian(colors)

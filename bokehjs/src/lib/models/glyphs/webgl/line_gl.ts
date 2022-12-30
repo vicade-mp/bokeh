@@ -1,6 +1,6 @@
 import {Transform} from "./base"
 import {BaseLineGL, LineGLVisuals} from "./base_line"
-import {Float32Buffer} from "./buffer"
+import {Float32Buffer, Uint8Buffer} from "./buffer"
 import {ReglWrapper} from "./regl_wrap"
 import {LineView} from "../line"
 
@@ -9,9 +9,54 @@ export class LineGL extends BaseLineGL {
     super(regl_wrapper, glyph)
   }
 
-  override draw(_indices: number[], main_glyph: LineView, transform: Transform): void {
-    // _indices are ignored.
-    this._draw_impl(transform, main_glyph.glglyph!)
+  override draw(indices: number[], main_glyph: LineView, transform: Transform): void {
+    this._draw_impl(indices, transform, main_glyph.glglyph!)
+  }
+
+  protected override _get_show_buffer(indices: number[], main_gl_glyph: LineGL): Uint8Buffer {
+    // If displaying all indices use main glyph's _show.
+    // Otherwise use this._show which is updated from the indices and uses
+    // main glyph's show to identify if (x, y) are finite or not.
+    const main_show: Uint8Buffer = main_gl_glyph._show!
+    let show = main_show
+
+    if (indices.length != main_show.length-1) {
+      const nonselection = this.glyph.parent.nonselection_glyph == this.glyph
+      const n = main_show.length
+      const main_show_array = main_show.get_sized_array(n)
+
+      if (this._show == null)
+        this._show = new Uint8Buffer(this.regl_wrapper)
+      const show_array = this._show.get_sized_array(n)   // equal to npoints+1
+      show_array.fill(0)
+
+      let iprev = indices[0]  // Previous index
+      if (nonselection && iprev > 0)
+        show_array[iprev] = main_show_array[iprev]  // Start of first line
+
+      for (let k = 1; k < indices.length; k++) {
+        const i = indices[k]
+
+        if (i == iprev+1)
+          show_array[i] = main_show_array[i]
+        else if (nonselection) {
+          // Gap in indices, end previous line and start new one
+          show_array[iprev+1] = main_show_array[iprev+1]
+          show_array[i] = main_show_array[i]
+        }
+
+        iprev = i
+      }
+
+      // iprev is now the last index
+      if (nonselection && iprev != n-2)
+        show_array[iprev+1] = main_show_array[iprev+1]  // End of last line
+
+      this._show.update()
+      show = this._show
+    }
+
+    return show
   }
 
   protected override _get_visuals(): LineGLVisuals {

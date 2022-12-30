@@ -1,11 +1,11 @@
+import {EventRole} from "../tool"
 import {GestureTool, GestureToolView} from "./gesture_tool"
 import {BoxAnnotation} from "../../annotations/box_annotation"
 import {CartesianFrame} from "../../canvas/cartesian_frame"
 import * as p from "core/properties"
-import {PanEvent, KeyEvent} from "core/ui_events"
+import {PanEvent, KeyEvent, TapEvent} from "core/ui_events"
 import {Dimensions, BoxOrigin} from "core/enums"
 import {Interval} from "core/types"
-import {Keys} from "core/dom"
 import {MenuItem} from "core/util/menus"
 import * as icons from "styles/icons.css"
 
@@ -13,6 +13,10 @@ type Point = [number, number]
 
 export class BoxZoomToolView extends GestureToolView {
   override model: BoxZoomTool
+
+  override get overlays() {
+    return [...super.overlays, this.model.overlay]
+  }
 
   protected _base_point: Point | null = null
 
@@ -120,37 +124,43 @@ export class BoxZoomToolView extends GestureToolView {
   }
 
   override _pan_start(ev: PanEvent): void {
-    this._base_point = [ev.sx, ev.sy]
+    const {sx, sy} = ev
+    if (this.plot_view.frame.bbox.contains(sx, sy))
+      this._base_point = [sx, sy]
   }
 
   override _pan(ev: PanEvent): void {
     if (this._base_point == null)
       return
 
-    const curr_point: Point = [ev.sx, ev.sy]
-    const [sx, sy] = this._compute_limits(this._base_point, curr_point)
-    this.model.overlay.update({left: sx[0], right: sx[1], top: sy[0], bottom: sy[1]})
+    const [[left, right], [top, bottom]] = this._compute_limits(this._base_point, [ev.sx, ev.sy])
+    this.model.overlay.update({left, right, top, bottom})
   }
 
   override _pan_end(ev: PanEvent): void {
     if (this._base_point == null)
       return
 
-    const curr_point: Point = [ev.sx, ev.sy]
-    const [sx, sy] = this._compute_limits(this._base_point, curr_point)
+    const [sx, sy] = this._compute_limits(this._base_point, [ev.sx, ev.sy])
     this._update(sx, sy)
     this._stop()
   }
 
-  _stop(): void {
-    this.model.overlay.update({left: null, right: null, top: null, bottom: null})
+  protected _stop(): void {
+    this.model.overlay.clear()
     this._base_point = null
   }
 
   override _keydown(ev: KeyEvent): void {
-    if (ev.keyCode == Keys.Esc) {
+    if (ev.key == "Escape") {
       this._stop()
     }
+  }
+
+  override _doubletap(_ev: TapEvent): void {
+    const {state} = this.plot_view
+    if (state.peek()?.type == "box_zoom")
+      state.undo()
   }
 
   _update([sx0, sx1]: Point, [sy0, sy1]: Point): void {
@@ -184,11 +194,13 @@ export class BoxZoomToolView extends GestureToolView {
 
 const DEFAULT_BOX_OVERLAY = () => {
   return new BoxAnnotation({
+    syncable: false,
     level: "overlay",
-    top_units: "screen",
-    left_units: "screen",
-    bottom_units: "screen",
-    right_units: "screen",
+    visible: false,
+    top_units: "canvas",
+    left_units: "canvas",
+    bottom_units: "canvas",
+    right_units: "canvas",
     fill_color: "lightgrey",
     fill_alpha: 0.5,
     line_color: "black",
@@ -215,8 +227,6 @@ export class BoxZoomTool extends GestureTool {
   override properties: BoxZoomTool.Props
   override __view_type__: BoxZoomToolView
 
-  override overlay: BoxAnnotation
-
   constructor(attrs?: Partial<BoxZoomTool.Attrs>) {
     super(attrs)
   }
@@ -238,7 +248,10 @@ export class BoxZoomTool extends GestureTool {
   }
 
   override tool_name = "Box Zoom"
-  override event_type = "pan" as "pan"
+  override event_type = ["pan" as "pan", "doubletap" as "doubletap"]
+  override get event_role(): EventRole {
+    return "pan" as "pan"
+  }
   override default_order = 20
 
   override get computed_icon(): string {
@@ -257,10 +270,6 @@ export class BoxZoomTool extends GestureTool {
 
   override get tooltip(): string {
     return this._get_dim_tooltip(this.dimensions)
-  }
-
-  override get computed_overlays() {
-    return [...super.computed_overlays, this.overlay]
   }
 
   override get menu(): MenuItem[] | null {

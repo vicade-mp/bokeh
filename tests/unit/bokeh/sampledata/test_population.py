@@ -16,8 +16,11 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
+# External imports
+import pandas as pd
+
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
+from tests.support.util.api import verify_all
 
 # Module under test
 #import bokeh.sampledata.population as bsp # isort:skip
@@ -37,7 +40,7 @@ ALL = (
 Test___all__ = pytest.mark.sampledata(verify_all("bokeh.sampledata.population", ALL))
 
 @pytest.mark.sampledata
-def test_data(pd) -> None:
+def test_data() -> None:
     import bokeh.sampledata.population as bsp
     assert isinstance(bsp.data, pd.DataFrame)
 

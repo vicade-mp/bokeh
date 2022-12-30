@@ -48,7 +48,7 @@ def publish_conda_package(config: Config, system: System) -> ActionReturn:
 
 def publish_documentation(config: Config, system: System) -> ActionReturn:
     version, release_level = config.version, config.release_level
-    path = f"deployment-{version}/sphinx/build/html"
+    path = f"deployment-{version}/docs/bokeh/build/html"
     flags = "--acl bucket-owner-full-control --cache-control max-age=31536000,public"
     try:
         if config.prerelease:
@@ -57,17 +57,17 @@ def publish_documentation(config: Config, system: System) -> ActionReturn:
         else:
             system.run(f"aws s3 sync {path} s3://docs.bokeh.org/en/latest/ {flags} {REGION}")
             system.run(f"aws s3 sync {path} s3://docs.bokeh.org/en/{version}/ {flags} {REGION}")
-            system.run(f'aws cloudfront create-invalidation --distribution-id {CLOUDFRONT_ID} --paths "/en/latest*" "/en/{version}*" {REGION}')
+            switcher = f"deployment-{version}/docs/bokeh/switcher.json"
+            system.run(f"aws s3 cp {switcher} s3://docs.bokeh.org/ {flags} {REGION}")
+            system.run(f'aws cloudfront create-invalidation --distribution-id {CLOUDFRONT_ID} --paths "/en/latest*" "/en/{version}*" "/switcher.json" {REGION}')
         return PASSED("Publish to documentation site succeeded")
     except RuntimeError as e:
         return FAILED("Could NOT publish to documentation site", details=e.args)
 
 
 def publish_pip_packages(config: Config, system: System) -> ActionReturn:
-    # NOTE: using pep440_version below because sdists already uses this syntax
-    # This will eventually be the standard dev/rc version syntax for all packages
-    sdist_path = f"deployment-{config.version}/bokeh-{config.pep440_version}.tar.gz"
-    wheel_path = f"deployment-{config.version}/bokeh-{config.pep440_version}-py3-none-any.whl"
+    sdist_path = f"deployment-{config.version}/bokeh-{config.version}.tar.gz"
+    wheel_path = f"deployment-{config.version}/bokeh-{config.version}-py3-none-any.whl"
     try:
         system.run(f"twine upload -u __token__ -p $PYPI_TOKEN {sdist_path} {wheel_path}")
         return PASSED("Publish to pypi.org succeeded")

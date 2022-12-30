@@ -20,7 +20,6 @@ import pytest ; pytest
 import numpy as np
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
 from bokeh.core.has_props import HasProps
 from bokeh.core.properties import (
     Alias,
@@ -38,6 +37,7 @@ from bokeh.core.properties import (
     String,
 )
 from bokeh.models import Plot
+from tests.support.util.api import verify_all
 
 # Module under test
 import bokeh.core.properties as bcp # isort:skip
@@ -64,7 +64,9 @@ ALL = (
     'ColorSpec',
     'ColumnData',
     'Complex',
+    'CoordinateLike',
     'DashPattern',
+    'DashPatternSpec',
     'DataSpec',
     'Date',
     'Datetime',
@@ -77,6 +79,7 @@ ALL = (
     'Float',
     'FontSize',
     'FontSizeSpec',
+    'FontStyleSpec',
     'HatchPatternSpec',
     'HatchPatternType',
     'Image',
@@ -84,8 +87,11 @@ ALL = (
     'Instance',
     'InstanceDefault',
     'Int',
+    'IntSpec',
     'Interval',
     'JSON',
+    'LineCapSpec',
+    'LineJoinSpec',
     'List',
     'MarkerSpec',
     'MarkerType',
@@ -98,9 +104,11 @@ ALL = (
     'NotSerialized',
     'Nothing',
     'Null',
+    'NullDistanceSpec',
     'NullStringSpec',
     'Nullable',
     'NumberSpec',
+    'Object',
     'Override',
     'PandasDataFrame',
     'PandasGroupBy',
@@ -114,20 +122,24 @@ ALL = (
     'Required',
     'RestrictedDict',
     'Seq',
+    'Set',
     'Size',
     'SizeSpec',
     'String',
     'StringSpec',
     'Struct',
     'TimeDelta',
+    'TextAlignSpec',
+    'TextBaselineSpec',
     'TextLike',
     'Tuple',
     'UnitsSpec',
+    'UnsetValueError',
     'expr',
     'field',
     'validate',
     'value',
-    'without_property_validation'
+    'without_property_validation',
 )
 
 #-----------------------------------------------------------------------------
@@ -142,7 +154,7 @@ class TestBasic:
         class Foo(HasProps):
             x = Int(12)
             y = String("hello")
-            z = List(Int, [1, 2, 3])
+            z = List(Int, default=[1, 2, 3])
             zz = Dict(String, Int)
             s = Nullable(String(None))
 
@@ -486,12 +498,12 @@ def test_HasProps_equals() -> None:
     class Foo(HasProps):
         x = Int(12)
         y = String("hello")
-        z = List(Int, [1,2,3])
+        z = List(Int, default=[1,2,3])
 
     class FooUnrelated(HasProps):
         x = Int(12)
         y = String("hello")
-        z = List(Int, [1,2,3])
+        z = List(Int, default=[1,2,3])
 
     v = Foo().equals(Foo())
     assert v is True

@@ -1,23 +1,24 @@
 name: Release - Build
+run-name: Release - Build ${{ github.event.inputs.version }}
 
 on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to build a release for (e.g. 3.0.0, 2.4.0dev8)"
+        description: "Version to build a release for (e.g. 3.0.0, 2.4.0.dev8)"
         required: true
 
-env:
-  CONDA_BASE_REQS: "conda=4.11.0 conda-build=3.21.7 conda-verify=3.4.2 ripgrep=0.10.0 jinja2"
-  CONDA_ENV_REQS: "python=3.9 jinja2 yaml pyyaml"
+defaults:
+  run:
+    shell: bash -l {0}
 
 jobs:
 
   build:
-    runs-on: ubuntu-18.04
+    runs-on: ubuntu-20.04
 
     steps:
-      - name: Verify Maintainer Authorization
+      - name: Check Maintainer
         env:
           BOKEH_VERSION: ${{ github.event.inputs.version }}
           RELEASE_MAINTAINERS: ${{ secrets.RELEASE_MAINTAINERS }}
@@ -36,24 +37,24 @@ jobs:
           exit 1
 
       - uses: actions/checkout@v2
+
       - uses: conda-incubator/setup-miniconda@v2
         with:
           miniconda-version: 'latest'
           activate-environment: bk-release-build
-          environment-file: ci/environment-release-build.yml
+          environment-file: conda/environment-release-build.yml
 
       - name: Install sampledata
-        shell: bash -l {0}
-        run: python -c 'import bokeh; bokeh.sampledata.download(progress=False)'
+        run: python src/bokeh/util/sampledata.py
 
-      - name: Install NPM
-        shell: bash -l {0}
+      - name: Post install status
         run: |
-          npm install --location=global npm@8
-          npm --version
+          echo "$(which node) @ $(node --version)"
+          echo "$(which npm) @ $(npm --version)"
+          conda info
+          conda list
 
       - name: Build Release Tarball
-        shell: bash -l {0}
         env:
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
@@ -61,5 +62,4 @@ jobs:
           GH_TOKEN: ${{ secrets.GH_TOKEN }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
           SLACK_TOKEN: ${{ secrets.SLACK_BUILD_RELEASE_TOKEN }}
-        run: |
-           python -m release build $BOKEH_VERSION
+        run: python -m release build $BOKEH_VERSION

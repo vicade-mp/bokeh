@@ -21,10 +21,11 @@ import datetime
 
 # External imports
 import numpy as np
+import pandas as pd
 
 # Bokeh imports
-from bokeh._testing.util.api import verify_all
 from bokeh.util.serialization import convert_date_to_datetime
+from tests.support.util.api import verify_all
 
 from _util_property import _TestHasProps, _TestModel
 
@@ -77,7 +78,7 @@ class Test_Date:
 
 
 class Test_Datetime:
-    def test_valid(self, pd) -> None:
+    def test_valid(self) -> None:
         prop = bcpd.Datetime()
         assert prop.is_valid(-1.0)
         assert prop.is_valid(-1)
@@ -90,8 +91,7 @@ class Test_Datetime:
         assert prop.is_valid(datetime.datetime.now())
         assert prop.is_valid(datetime.time(10,12))
         assert prop.is_valid(np.datetime64("2020-01-11"))
-        if pd:
-            assert prop.is_valid(pd.Timestamp("2010-01-11"))
+        assert prop.is_valid(pd.Timestamp("2010-01-11"))
 
     def test_invalid(self) -> None:
         prop = bcpd.Datetime()

@@ -17,12 +17,7 @@ import pytest ; pytest
 # Imports
 #-----------------------------------------------------------------------------
 
-# External imports
-from flaky import flaky
-
 # Bokeh imports
-from bokeh._testing.plugins.project import BokehModelPage, BokehServerPage
-from bokeh._testing.util.selenium import RECORD, find_element_for
 from bokeh.layouts import column
 from bokeh.models import (
     Circle,
@@ -32,13 +27,15 @@ from bokeh.models import (
     Plot,
     Range1d,
 )
+from tests.support.plugins.project import BokehModelPage, BokehServerPage
+from tests.support.util.selenium import RECORD, find_element_for
 
 #-----------------------------------------------------------------------------
 # Tests
 #-----------------------------------------------------------------------------
 
 pytest_plugins = (
-    "bokeh._testing.plugins.project",
+    "tests.support.plugins.project",
 )
 
 def mk_modify_doc(colorpicker: ColorPicker):
@@ -95,7 +92,6 @@ class Test_ColorPicker:
 
         assert page.has_no_console_errors()
 
-    @flaky(max_runs=10)
     def test_server_on_change_round_trip(self, bokeh_server_page: BokehServerPage) -> None:
         colorpicker = ColorPicker(color="red")
         page = bokeh_server_page(mk_modify_doc(colorpicker))

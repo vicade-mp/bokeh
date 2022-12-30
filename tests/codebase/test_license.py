@@ -24,7 +24,7 @@ from os.path import join
 from subprocess import run
 
 # Bokeh imports
-from bokeh._testing.util.project import TOP_PATH
+from tests.support.util.project import TOP_PATH
 
 #-----------------------------------------------------------------------------
 # Tests
@@ -37,5 +37,5 @@ def test_license_set() -> None:
 
     '''
     chdir(TOP_PATH)
-    proc = run(["diff", "LICENSE.txt", join("bokeh", "LICENSE.txt")], capture_output=True)
+    proc = run(["diff", "LICENSE.txt", join("src", "bokeh", "LICENSE.txt")], capture_output=True)
     assert proc.returncode == 0, f"LICENSE.txt mismatch:\n{proc.stdout.decode('utf-8')}"

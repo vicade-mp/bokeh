@@ -23,22 +23,25 @@ __all__ = (
     "build_bokehjs",
     "build_conda_packages",
     "build_docs",
-    "build_sdist_packages",
-    "build_wheel_packages",
-    "dev_install",
+    "build_pip_packages",
+    "dev_install_bokehjs",
     "install_bokehjs",
     "npm_install",
     "pack_deployment_tarball",
     "update_bokehjs_versions",
     "update_changelog",
     "update_hash_manifest",
+    "verify_conda_install",
+    "verify_pip_install_from_sdist",
+    "verify_pip_install_using_sdist",
+    "verify_pip_install_using_wheel",
 )
 
 
 def build_bokehjs(config: Config, system: System) -> ActionReturn:
     try:
         system.cd("bokehjs")
-        system.run("node make")
+        system.run("node make build")
         system.cd("..")
         return PASSED("BokehJS build succeeded")
     except RuntimeError as e:
@@ -57,7 +60,7 @@ def build_npm_packages(config: Config, system: System) -> ActionReturn:
 
 def build_conda_packages(config: Config, system: System) -> ActionReturn:
     try:
-        system.run("conda build conda.recipe --quiet --no-test --output-folder .")
+        system.run("conda build conda/recipe --no-test", VERSION=config.version)
         return PASSED("conda package build succeeded")
     except RuntimeError as e:
         return FAILED("conda package build did NOT succeed", details=e.args)
@@ -65,33 +68,25 @@ def build_conda_packages(config: Config, system: System) -> ActionReturn:
 
 def build_docs(config: Config, system: System) -> ActionReturn:
     try:
-        system.cd("sphinx")
-        system.run("make clean all", BOKEH_DOCS_CDN=config.version, BOKEH_DOCS_VERSION=config.version)
-        system.cd("..")
+        system.cd("docs/bokeh")
+        system.run("make clean all SPHINXOPTS=-v", BOKEH_DOCS_CDN=config.version, BOKEH_DOCS_VERSION=config.version)
+        system.cd("../..")
         return PASSED("Docs build succeeded")
     except RuntimeError as e:
         return FAILED("Docs build did NOT succeed", details=e.args)
 
 
-def build_sdist_packages(config: Config, system: System) -> ActionReturn:
+def build_pip_packages(config: Config, system: System) -> ActionReturn:
     try:
-        system.run("python setup.py sdist --install-js --formats=gztar")
-        return PASSED("sdist package build succeeded")
+        system.run("python -m build .", BOKEHJS_ACTION="install")
+        return PASSED("pip packages build succeeded")
     except RuntimeError as e:
-        return FAILED("sdist package build did NOT succeed", details=e.args)
+        return FAILED("pip packages build did NOT succeed", details=e.args)
 
 
-def build_wheel_packages(config: Config, system: System) -> ActionReturn:
+def dev_install_bokehjs(config: Config, system: System) -> ActionReturn:
     try:
-        system.run("python setup.py bdist_wheel --install-js")
-        return PASSED("wheel package build succeeded")
-    except RuntimeError as e:
-        return FAILED("wheel package build did NOT succeed", details=e.args)
-
-
-def dev_install(config: Config, system: System) -> ActionReturn:
-    try:
-        system.run("python setup.py develop --install-js")
+        system.run("pip install -e .", BOKEHJS_ACTION="install")
         return PASSED("Bokeh dev install succeeded")
     except RuntimeError as e:
         return FAILED("Bokeh dev install did NOT succeed", details=e.args)
@@ -99,7 +94,7 @@ def dev_install(config: Config, system: System) -> ActionReturn:
 
 def install_bokehjs(config: Config, system: System) -> ActionReturn:
     try:
-        system.run("python setup.py --install-js")
+        system.run("pip install .", BOKEHJS_ACTION="install")
         return PASSED("BokehJS install succeeded")
     except RuntimeError as e:
         return FAILED("BokehJS install did NOT succeed", details=e.args)
@@ -121,14 +116,14 @@ def pack_deployment_tarball(config: Config, system: System) -> ActionReturn:
         filename = f"{dirname}.tgz"
         system.run(f"mkdir {dirname}")
         system.run(f"cp bokehjs/bokeh-bokehjs-{config.js_version}.tgz {dirname}")
-        system.run(f"cp noarch/bokeh-{config.version}-py_0.tar.bz2 {dirname}")
-        system.run(f"cp dist/bokeh-{config.pep440_version}.tar.gz {dirname}")
-        system.run(f"cp dist/bokeh-{config.pep440_version}-py3-none-any.whl {dirname}")
+        system.run(f"cp $CONDA_PREFIX/conda-bld/noarch/bokeh-{config.version}-py_0.tar.bz2 {dirname}")
+        system.run(f"cp dist/bokeh-{config.version}.tar.gz {dirname}")
+        system.run(f"cp dist/bokeh-{config.version}-py3-none-any.whl {dirname}")
         system.run(f"mkdir {dirname}/bokehjs")
         system.run(f"cp -r bokehjs/build {dirname}/bokehjs")
-        system.run(f"mkdir -p {dirname}/sphinx/build")
-        system.run(f"cp -r sphinx/build/html {dirname}/sphinx/build")
-        system.run(f"cp -r sphinx/switcher.json {dirname}/sphinx")
+        system.run(f"mkdir -p {dirname}/docs/bokeh/build")
+        system.run(f"cp -r docs/bokeh/build/html {dirname}/docs/bokeh/build")
+        system.run(f"cp -r docs/bokeh/switcher.json {dirname}/docs/bokeh")
         system.run(f"tar cvf {filename} {dirname}")
         return PASSED(f"Packed deployment tarball {filename!r}")
     except RuntimeError as e:
@@ -181,7 +176,7 @@ def update_changelog(config: Config, system: System) -> ActionReturn:
         system.pushd("scripts")
         system.run(f"python milestone.py -a {config.milestone_version}")
         system.popd()
-        config.add_modified("CHANGELOG")
+        config.add_modified("docs/CHANGELOG")
         return PASSED("Updated CHANGELOG with new closed issues")
     except RuntimeError as e:
         return FAILED("CHANGELOG update failed", details=e.args)
@@ -193,7 +188,35 @@ def update_hash_manifest(config: Config, system: System) -> ActionReturn:
         system.cd("scripts")
         system.run(f"python sri.py {config.version}")
         system.cd("..")
-        config.add_modified("bokeh/_sri.json")
+        config.add_modified("src/bokeh/_sri.json")
         return PASSED("Updated SRI hash manifest")
     except RuntimeError as e:
         return FAILED("SRI hash manifest update failed", details=e.args)
+
+def verify_pip_install_from_sdist(config: Config, system: System) -> ActionReturn:
+    try:
+        system.run("bash scripts/ci/verify_pip_install_from_sdist.sh", VERSION=config.version)
+        return PASSED("Verified pip install from sdist")
+    except RuntimeError as e:
+        return FAILED("Verify pip install from sdist failed", details=e.args)
+
+def verify_pip_install_using_sdist(config: Config, system: System) -> ActionReturn:
+    try:
+        system.run("bash scripts/ci/verify_pip_install_using_sdist.sh", VERSION=config.version)
+        return PASSED("Verified pip install using sdist")
+    except RuntimeError as e:
+        return FAILED("Verify pip install using sdist failed", details=e.args)
+
+def verify_pip_install_using_wheel(config: Config, system: System) -> ActionReturn:
+    try:
+        system.run("bash scripts/ci/verify_pip_install_using_wheel.sh", VERSION=config.version)
+        return PASSED("Verified pip install using wheel")
+    except RuntimeError as e:
+        return FAILED("Verify pip install using wheel failed", details=e.args)
+
+def verify_conda_install(config: Config, system: System) -> ActionReturn:
+    try:
+        system.run("bash scripts/ci/verify_conda_install.sh", VERSION=config.version)
+        return PASSED("Verified conda install")
+    except RuntimeError as e:
+        return FAILED("Verify conda install failed", details=e.args)

@@ -9,6 +9,10 @@ import * as icons from "styles/icons.css"
 export class BoxSelectToolView extends SelectToolView {
   override model: BoxSelectTool
 
+  override get overlays() {
+    return [...super.overlays, this.model.overlay]
+  }
+
   protected _base_point: [number, number] | null
 
   protected _compute_limits(curpoint: [number, number]): [[number, number], [number, number]] {
@@ -27,15 +31,19 @@ export class BoxSelectToolView extends SelectToolView {
 
   override _pan_start(ev: PanEvent): void {
     const {sx, sy} = ev
-    this._base_point = [sx, sy]
+    if (this.plot_view.frame.bbox.contains(sx, sy))
+      this._base_point = [sx, sy]
   }
 
   override _pan(ev: PanEvent): void {
-    const {sx, sy} = ev
-    const curpoint: [number, number] = [sx, sy]
+    if (this._base_point == null)
+      return
 
-    const [sxlim, sylim] = this._compute_limits(curpoint)
-    this.model.overlay.update({left: sxlim[0], right: sxlim[1], top: sylim[0], bottom: sylim[1]})
+    const {sx, sy} = ev
+    const [sxlim, sylim] = this._compute_limits([sx, sy])
+
+    const [[left, right], [top, bottom]] = [sxlim, sylim]
+    this.model.overlay.update({left, right, top, bottom})
 
     if (this.model.select_every_mousemove) {
       this._do_select(sxlim, sylim, false, this._select_mode(ev))
@@ -43,14 +51,15 @@ export class BoxSelectToolView extends SelectToolView {
   }
 
   override _pan_end(ev: PanEvent): void {
-    const {sx, sy} = ev
-    const curpoint: [number, number] = [sx, sy]
+    if (this._base_point == null)
+      return
 
-    const [sxlim, sylim] = this._compute_limits(curpoint)
+    const {sx, sy} = ev
+
+    const [sxlim, sylim] = this._compute_limits([sx, sy])
     this._do_select(sxlim, sylim, true, this._select_mode(ev))
 
-    this.model.overlay.update({left: null, right: null, top: null, bottom: null})
-
+    this.model.overlay.clear()
     this._base_point = null
 
     this.plot_view.state.push("box_select", {selection: this.plot_view.get_selection()})
@@ -64,11 +73,13 @@ export class BoxSelectToolView extends SelectToolView {
 
 const DEFAULT_BOX_OVERLAY = () => {
   return new BoxAnnotation({
+    syncable: false,
     level: "overlay",
-    top_units: "screen",
-    left_units: "screen",
-    bottom_units: "screen",
-    right_units: "screen",
+    visible: false,
+    top_units: "canvas",
+    left_units: "canvas",
+    bottom_units: "canvas",
+    right_units: "canvas",
     fill_color: "lightgrey",
     fill_alpha: 0.5,
     line_color: "black",
@@ -94,8 +105,6 @@ export interface BoxSelectTool extends BoxSelectTool.Attrs {}
 export class BoxSelectTool extends SelectTool {
   override properties: BoxSelectTool.Props
   override __view_type__: BoxSelectToolView
-
-  override overlay: BoxAnnotation
 
   constructor(attrs?: Partial<BoxSelectTool.Attrs>) {
     super(attrs)
@@ -135,9 +144,5 @@ export class BoxSelectTool extends SelectTool {
 
   override get tooltip(): string {
     return this._get_dim_tooltip(this.dimensions)
-  }
-
-  override get computed_overlays() {
-    return [...super.computed_overlays, this.overlay]
   }
 }
